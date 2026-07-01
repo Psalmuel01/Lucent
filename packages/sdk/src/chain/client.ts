@@ -41,6 +41,10 @@ export interface ContractIds {
   token: string;
   verifier: string;
   auditor: string;
+  /** PayrollVault (orchestrator) — optional; only the payroll flows need it. */
+  payroll?: string;
+  /** PrivateEscrow factory — optional; only the escrow flows need it. */
+  escrowFactory?: string;
 }
 
 export interface ChainConfig {
