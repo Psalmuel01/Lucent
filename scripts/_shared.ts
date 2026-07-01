@@ -19,6 +19,10 @@ export const WASM = {
   token: join(REPO_ROOT, "packages/sdk/contracts/confidential_token.wasm"),
   verifier: join(REPO_ROOT, "packages/sdk/contracts/confidential_verifier.wasm"),
   auditor: join(REPO_ROOT, "packages/sdk/contracts/confidential_auditor.wasm"),
+  // Lucent contracts.
+  payroll: join(REPO_ROOT, "packages/sdk/contracts/payroll_vault.wasm"),
+  escrowInstance: join(REPO_ROOT, "packages/sdk/contracts/private_escrow_instance.wasm"),
+  escrowFactory: join(REPO_ROOT, "packages/sdk/contracts/private_escrow_factory.wasm"),
 };
 
 export const VKS_DIR = join(REPO_ROOT, "packages/sdk/circuits/vks");
@@ -29,7 +33,16 @@ export interface Deployment {
   rpcUrl: string;
   passphrase: string;
   deployedAtLedger: number;
-  contracts: { token: string; verifier: string; auditor: string; underlying: string };
+  contracts: {
+    token: string;
+    verifier: string;
+    auditor: string;
+    underlying: string;
+    /** Lucent — present once deploy:contracts has run. */
+    payroll?: string;
+    escrowFactory?: string;
+    escrowInstanceWasm?: string;
+  };
   auditor: { id: number; secretHex: string; keyXHex: string; keyYHex: string };
   addrF: string;
 }

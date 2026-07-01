@@ -53,6 +53,20 @@ function deploy(wasmPath: string, ctorArgs: string[]): string {
   return id;
 }
 
+/** Upload a wasm (no instance) and return its hex hash — used for the escrow factory. */
+function uploadWasm(wasmPath: string): string {
+  const out = stellar([
+    "contract", "upload",
+    "--wasm", wasmPath,
+    "--source", DEPLOYER,
+    "--network", NETWORK,
+    "--optimize=false",
+  ]);
+  const hash = out.split(/\s+/).filter(Boolean).pop()!;
+  if (!/^[0-9a-f]{64}$/i.test(hash)) throw new Error(`unexpected upload output: ${out}`);
+  return hash;
+}
+
 async function main(): Promise<void> {
   const deployerPub = publicKey(DEPLOYER);
   console.log(`deployer ${DEPLOYER} = ${deployerPub}`);
@@ -131,12 +145,25 @@ async function main(): Promise<void> {
     console.log(`  addr_f parity OK: ${toHex32(sdkAddrF)}`);
   }
 
+  // 6. Lucent contracts. PayrollVault orchestrates transfers through the token;
+  //    the PrivateEscrow factory deploys one instance per escrow, so its
+  //    instance wasm is uploaded first and the factory is bound to that hash.
+  const payroll = deploy(WASM.payroll, ["--token", token]);
+  console.log(`payroll = ${payroll}`);
+  const escrowInstanceWasm = uploadWasm(WASM.escrowInstance);
+  console.log(`escrow instance wasm = ${escrowInstanceWasm}`);
+  const escrowFactory = deploy(WASM.escrowFactory, [
+    "--token", token,
+    "--instance_wasm", escrowInstanceWasm,
+  ]);
+  console.log(`escrow factory = ${escrowFactory}`);
+
   const deployment: Deployment = {
     network: NETWORK,
     rpcUrl: RPC_URL,
     passphrase: PASSPHRASE,
     deployedAtLedger: ledgerBeforeToken,
-    contracts: { token, verifier, auditor, underlying },
+    contracts: { token, verifier, auditor, underlying, payroll, escrowFactory, escrowInstanceWasm },
     auditor: {
       id: 0,
       secretHex: toHex32(auditorSecret),
@@ -147,6 +174,12 @@ async function main(): Promise<void> {
   };
   saveDeployment(deployment);
   console.log(`\nwrote deployments/${NETWORK}.json`);
+
+  console.log(
+    `\nSet these in packages/app/.env.local (and mirror the ids in lib/deployment.ts):\n` +
+      `  NEXT_PUBLIC_PAYROLL_ID=${payroll}\n` +
+      `  NEXT_PUBLIC_ESCROW_FACTORY_ID=${escrowFactory}`,
+  );
 }
 
 /** Scan token events for `address_as_field_set` and return its field value. */

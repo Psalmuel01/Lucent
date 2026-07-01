@@ -1,4 +1,6 @@
+# soroban-sdk 26.1 (pinned via Cargo.lock) requires rustc >= 1.91, so this pins a
+# concrete 1.91 rather than "stable" (which may lag on a given machine).
 [toolchain]
-channel = "stable"
+channel = "1.91"
 targets = ["wasm32v1-none"]
 components = ["rustfmt", "clippy", "rust-src"]

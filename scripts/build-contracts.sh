@@ -21,15 +21,21 @@ echo "==> Building contracts with 'stellar contract build' (target $TARGET)"
 # feature, which only the stellar-cli build path supports.
 stellar contract build
 
-declare -A WASMS=(
-  ["confidential_token_contract"]="confidential_token"
-  ["confidential_verifier_contract"]="confidential_verifier"
-  ["confidential_auditor_contract"]="confidential_auditor"
+# "crate_wasm_name:output_name" pairs. Plain array (no `declare -A`) so this runs
+# on macOS's stock bash 3.2.
+WASMS=(
+  "confidential_token_contract:confidential_token"
+  "confidential_verifier_contract:confidential_verifier"
+  "confidential_auditor_contract:confidential_auditor"
+  "payroll_vault_contract:payroll_vault"
+  "private_escrow_instance_contract:private_escrow_instance"
+  "private_escrow_factory_contract:private_escrow_factory"
 )
 
 WASM_DIR="target/$TARGET/release"
-for src in "${!WASMS[@]}"; do
-  dst="${WASMS[$src]}"
+for pair in "${WASMS[@]}"; do
+  src="${pair%%:*}"
+  dst="${pair##*:}"
   cp "$WASM_DIR/${src}.wasm" "$OUT_DIR/${dst}.wasm"
   echo "    wrote $OUT_DIR/${dst}.wasm ($(wc -c < "$OUT_DIR/${dst}.wasm") bytes)"
 done
