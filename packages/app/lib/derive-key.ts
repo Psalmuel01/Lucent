@@ -9,7 +9,7 @@
  * keys for another (mirroring the contract-binding of `vk` in the SDK).
  */
 
-import { frMod, fromBytesBE } from "@ctd/sdk";
+import { frMod, fromBytesBE } from "@lucent/sdk";
 
 export function keyDerivationMessage(networkPassphrase: string, tokenContract: string): string {
   return [

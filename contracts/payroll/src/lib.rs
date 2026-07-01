@@ -1,10 +1,8 @@
 //! PayrollVault — confidential salary distribution on Stellar.
 //!
-//! A port of the FHE reference (`shade-ref/contracts/PayrollVault.sol`) to the
-//! confidential-token model. Because balances here are Pedersen commitments and
-//! every spend needs an UltraHonk proof generated off-chain (a contract cannot
-//! prove on-chain), this vault is an **orchestrator**, not a custodian of
-//! encrypted balances:
+//! Because balances here are Pedersen commitments and every spend needs an
+//! UltraHonk proof generated off-chain (a contract cannot prove on-chain), this
+//! vault is an **orchestrator**, not a custodian of encrypted balances:
 //!
 //! * The employer keeps their salary figures client-side (never on-chain — a
 //!   plaintext salary in contract storage would leak it).

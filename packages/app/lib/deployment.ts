@@ -1,41 +1,39 @@
 /**
- * Deployment the app talks to. Mirror of deployments/testnet.json — update
- * after a redeploy.
+ * Deployment the app talks to. Sourced from `lib/deployment.json`, which is
+ * written by `pnpm deploy:contracts` (alongside `deployments/testnet.json`) — so
+ * a redeploy updates the app with no code edit. The two Lucent contract ids
+ * (PayrollVault, PrivateEscrow factory) can also be overridden from env.
  *
- * ⚠️ Demo-only exception: `auditorSecretHex` is the auditor's Grumpkin SECRET
- * key, published here so anyone can play the auditor persona on /auditor. In
- * any real deployment this never leaves the auditor's machine — only the
- * public key `K_aud = k·H` goes on-chain (auditor contract registry).
+ * ⚠️ Demo-only exception: `auditor.secretHex` is the auditor's Grumpkin SECRET
+ * key, shipped in the client bundle on purpose so anyone can play the auditor on
+ * /auditor. In any real deployment it never leaves the auditor's machine — only
+ * the public key `K_aud = k·H` goes on-chain.
  */
-import { Networks } from "@stellar/stellar-sdk";
+import deployment from "./deployment.json";
 
 export const DEPLOYMENT = {
-  rpcUrl: "https://soroban-testnet.stellar.org",
-  networkPassphrase: Networks.TESTNET,
+  rpcUrl: deployment.rpcUrl,
+  networkPassphrase: deployment.passphrase,
   /**
-   * Optional Goldsky indexer (see packages/indexer/). When set, the app uses it
-   * to backfill events older than the RPC's ~7-day retention window; when unset
-   * the app runs RPC-only (events older than retention are unavailable). Read
-   * at build time from NEXT_PUBLIC_INDEXER_URL.
+   * Optional Goldsky indexer (see packages/indexer/). When set, the app backfills
+   * events older than the RPC's ~7-day retention window; when unset it runs
+   * RPC-only. Read at build time from NEXT_PUBLIC_INDEXER_URL.
    */
   indexerUrl: process.env.NEXT_PUBLIC_INDEXER_URL || undefined,
   /** Ledger the token was deployed at — the first-sync start point. */
-  deployedAtLedger: 3013364,
-  /** All accounts in this demo register under this auditor id. */
-  auditorId: 0,
-  /** Auditor Grumpkin secret `k` for auditor id 0 (see header warning). */
-  auditorSecretHex: "0x00c066da47bac8f87cd3eb9a36c37b417ca40cfa2730e7d8eb7f0bf939d11832",
+  deployedAtLedger: deployment.deployedAtLedger,
+  /** All accounts in this deployment register under this auditor id. */
+  auditorId: deployment.auditor.id,
+  /** Auditor Grumpkin secret `k` (see header warning). */
+  auditorSecretHex: deployment.auditor.secretHex,
   contracts: {
-    token: "CBF64DEOVQAXJFBSNGFEUT2AH4H7K5JBY3ZYJ5GVEINMNSDISWRG5N3F",
-    verifier: "CDCET36PIS44DWJM5UQSSI4ZHGRDSBIIQW4G4ALPYK3Y6FEQGY5ZWFXL",
-    auditor: "CA4II62E35TQKPGHCPBD6EBAS732GSGS6H37UUWKEDHR4YTBVMPHVY4L",
-    underlying: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
-    /**
-     * Lucent contracts. Populated after `pnpm deploy:contracts` (which writes
-     * deployments/testnet.json) — read at build time from env so the Payroll and
-     * Escrow screens can find them. Empty until you deploy your own.
-     */
-    payroll: process.env.NEXT_PUBLIC_PAYROLL_ID || "",
-    escrowFactory: process.env.NEXT_PUBLIC_ESCROW_FACTORY_ID || "",
+    token: deployment.contracts.token,
+    verifier: deployment.contracts.verifier,
+    auditor: deployment.contracts.auditor,
+    underlying: deployment.contracts.underlying,
+    /** Lucent contracts — empty until `pnpm deploy:contracts` runs. Env wins. */
+    payroll: process.env.NEXT_PUBLIC_PAYROLL_ID || deployment.contracts.payroll || "",
+    escrowFactory:
+      process.env.NEXT_PUBLIC_ESCROW_FACTORY_ID || deployment.contracts.escrowFactory || "",
   },
 } as const;

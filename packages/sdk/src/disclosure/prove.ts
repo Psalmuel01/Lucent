@@ -35,7 +35,7 @@ export async function proveRecipientDisclosure(params: {
   event: TransferEvent;
   /** The recipient's request, received out-of-band. */
   request: DisclosureRequest;
-  /** Prover over the shared `@ctd/disclosure` disclose_recipient artifact. */
+  /** Prover over the shared `@lucent/disclosure` disclose_recipient artifact. */
   prover: CircuitProver;
 }): Promise<DisclosureBundle> {
   const { keys, event, request, prover } = params;
@@ -60,7 +60,7 @@ export async function proveSenderDisclosure(params: {
   pvkB: Point;
   /** The recipient's request, received out-of-band. */
   request: DisclosureRequest;
-  /** Prover over the shared `@ctd/disclosure` disclose_sender artifact. */
+  /** Prover over the shared `@lucent/disclosure` disclose_sender artifact. */
   prover: CircuitProver;
 }): Promise<DisclosureBundle> {
   const { keys, rEScalar, event, pvkB, request, prover } = params;

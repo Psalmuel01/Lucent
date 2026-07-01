@@ -3,7 +3,7 @@
 //   1. Simulate the on-chain side: a real transfer witness produces the event
 //      fields (R_e, sigma, v_tilde) exactly as the contract would emit them.
 //   2. Holder side: build the disclosure witness, prove with the shared
-//      @ctd/disclosure artifact (UltraHonk, keccak transcript).
+//      @lucent/disclosure artifact (UltraHonk, keccak transcript).
 //   3. Receiver side: reconstruct the public-input vector the way
 //      disclosure/verify.ts does (from "chain" values + own (P_R, ν), taking
 //      only (R_disc, ṽ_disc) from the bundle), verify, decrypt, and check the

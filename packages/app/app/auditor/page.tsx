@@ -28,7 +28,7 @@ import {
   toHex32,
   fromHex,
   type ConfidentialEvent,
-} from "@ctd/sdk";
+} from "@lucent/sdk";
 import { DEPLOYMENT } from "@/lib/deployment";
 import { errMsg } from "@/lib/err";
 import { CopyButton } from "../copy-button";

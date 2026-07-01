@@ -10,7 +10,7 @@
  *      `addressToField(token)` — the Poseidon2 parity guard.
  *   6. Write deployments/testnet.json.
  *
- * Usage: pnpm --filter @ctd/sdk exec tsx ../../scripts/deploy.ts
+ * Usage: pnpm --filter @lucent/sdk exec tsx ../../scripts/deploy.ts
  * Deployer identity: the `admin` key in the stellar CLI config.
  */
 
@@ -173,12 +173,9 @@ async function main(): Promise<void> {
     addrF: toHex32(sdkAddrF),
   };
   saveDeployment(deployment);
-  console.log(`\nwrote deployments/${NETWORK}.json`);
-
   console.log(
-    `\nSet these in packages/app/.env.local (and mirror the ids in lib/deployment.ts):\n` +
-      `  NEXT_PUBLIC_PAYROLL_ID=${payroll}\n` +
-      `  NEXT_PUBLIC_ESCROW_FACTORY_ID=${escrowFactory}`,
+    `\nwrote deployments/${NETWORK}.json and packages/app/lib/deployment.json` +
+      `\nthe app now points at this deployment — just rebuild/restart it.`,
   );
 }
 

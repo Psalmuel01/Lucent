@@ -27,6 +27,8 @@ export const WASM = {
 
 export const VKS_DIR = join(REPO_ROOT, "packages/sdk/circuits/vks");
 export const DEPLOYMENTS = join(REPO_ROOT, "deployments", `${NETWORK}.json`);
+/** App-local mirror the Next front-end imports (lib/deployment.ts). */
+export const APP_DEPLOYMENT = join(REPO_ROOT, "packages/app/lib/deployment.json");
 
 export interface Deployment {
   network: string;
@@ -89,7 +91,10 @@ export function loadDeployment(): Deployment {
 
 export function saveDeployment(d: Deployment): void {
   mkdirSync(dirname(DEPLOYMENTS), { recursive: true });
-  writeFileSync(DEPLOYMENTS, JSON.stringify(d, null, 2));
+  const json = JSON.stringify(d, null, 2);
+  writeFileSync(DEPLOYMENTS, json);
+  // Mirror into the app so the front-end picks up new ids without a code edit.
+  writeFileSync(APP_DEPLOYMENT, json + "\n");
 }
 
 export function readVk(name: string): Uint8Array {

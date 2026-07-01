@@ -7,7 +7,7 @@ import {
   signTransaction,
   signMessage as freighterSignMessage,
 } from "@stellar/freighter-api";
-import type { Signer } from "@ctd/sdk";
+import type { Signer } from "@lucent/sdk";
 
 import { DEPLOYMENT } from "./deployment";
 import { errMsg } from "./err";

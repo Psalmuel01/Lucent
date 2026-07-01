@@ -10,10 +10,10 @@ importers:
 
   packages/app:
     dependencies:
-      '@ctd/disclosure':
+      '@lucent/disclosure':
         specifier: workspace:*
         version: link:../disclosure
-      '@ctd/sdk':
+      '@lucent/sdk':
         specifier: workspace:*
         version: link:../sdk
       '@opennextjs/cloudflare':

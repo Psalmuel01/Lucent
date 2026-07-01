@@ -10,7 +10,7 @@ import type { AccountState } from "./types.js";
 import { bigintReplacer, reviveState, type StateStore } from "./store.js";
 
 export class LocalStorageStore implements StateStore {
-  constructor(private prefix = "ctd:state:") {}
+  constructor(private prefix = "lucent:state:") {}
 
   #key(address: string): string {
     return this.prefix + address;

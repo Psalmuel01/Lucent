@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { EscrowState, type EscrowInfo } from "@ctd/sdk";
+import { EscrowState, type EscrowInfo } from "@lucent/sdk";
 import { DEPLOYMENT } from "@/lib/deployment";
 import { useWallet } from "@/lib/wallet-context";
 import { useAction } from "@/lib/use-action";

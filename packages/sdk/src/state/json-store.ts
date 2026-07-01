@@ -1,7 +1,7 @@
 /**
  * Node-only {@link StateStore} backed by a JSON file. Kept OUT of the package
  * barrel so the browser bundle never pulls in `node:fs`. Import it directly:
- * `import { JsonFileStore } from "@ctd/sdk/dist/state/json-store.js"` (or from
+ * `import { JsonFileStore } from "@lucent/sdk/dist/state/json-store.js"` (or from
  * source in scripts).
  */
 

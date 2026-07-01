@@ -1,22 +1,22 @@
 {
-  "name": "confidential-token-demo",
+  "name": "lucent",
   "version": "0.1.0",
   "private": true,
-  "description": "Confidential token demo on Stellar (Soroban) — SDK + web app, RPC-only (no indexer).",
+  "description": "Lucent — confidential payments on Stellar (Soroban): confidential token, payroll, escrow, auditor, and selective disclosure.",
   "packageManager": "pnpm@10.33.0",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "build:sdk": "pnpm --filter @ctd/sdk build",
-    "test:sdk": "pnpm --filter @ctd/sdk test",
-    "dev": "pnpm --filter @ctd/app dev",
+    "build:sdk": "pnpm --filter @lucent/sdk build",
+    "test:sdk": "pnpm --filter @lucent/sdk test",
+    "dev": "pnpm --filter @lucent/app dev",
     "build:contracts": "bash scripts/build-contracts.sh",
-    "build:disclosure": "pnpm --filter @ctd/sdk exec node ../../scripts/build-disclosure.mjs",
-    "deploy:contracts": "pnpm --filter @ctd/sdk exec tsx ../../scripts/deploy.ts",
-    "deploy:app": "pnpm --filter @ctd/app run deploy:cf",
-    "e2e": "pnpm --filter @ctd/sdk exec tsx ../../scripts/e2e.ts",
-    "e2e:disclosure": "pnpm --filter @ctd/sdk exec tsx ../../scripts/e2e-disclosure.ts"
+    "build:disclosure": "pnpm --filter @lucent/sdk exec node ../../scripts/build-disclosure.mjs",
+    "deploy:contracts": "pnpm --filter @lucent/sdk exec tsx ../../scripts/deploy.ts",
+    "deploy:app": "pnpm --filter @lucent/app run deploy:cf",
+    "e2e": "pnpm --filter @lucent/sdk exec tsx ../../scripts/e2e.ts",
+    "e2e:disclosure": "pnpm --filter @lucent/sdk exec tsx ../../scripts/e2e-disclosure.ts"
   },
   "license": "MIT",
   "pnpm": {

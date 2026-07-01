@@ -1,5 +1,5 @@
 /**
- * @ctd/sdk — client SDK for the Stellar confidential-token demo.
+ * @lucent/sdk — client SDK for the Stellar confidential-token demo.
  *
  * Layers:
  *   - crypto/   Grumpkin + Poseidon2 + key/address derivation (parity-checked

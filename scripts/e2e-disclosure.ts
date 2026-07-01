@@ -12,7 +12,7 @@
  * Plus rejection paths: a stale/foreign nonce and a ref_E pointing at a
  * non-transfer event must both hard-reject.
  *
- * Usage: pnpm --filter @ctd/sdk exec tsx ../../scripts/e2e-disclosure.ts
+ * Usage: pnpm --filter @lucent/sdk exec tsx ../../scripts/e2e-disclosure.ts
  */
 
 import { readFileSync } from "node:fs";

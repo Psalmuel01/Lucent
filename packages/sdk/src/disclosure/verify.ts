@@ -72,7 +72,7 @@ export async function verifyDisclosure(params: {
   /** Prover/verifier over the shared artifact for the BUNDLE's circuit_id. */
   prover: CircuitProver;
   /**
-   * Pinned verification key from `@ctd/disclosure` (the vk.json matching the
+   * Pinned verification key from `@lucent/disclosure` (the vk.json matching the
    * bundle's circuit_id). When given, the VK derived from the loaded circuit
    * bytecode must match byte-for-byte — this is the §5.5 "circuit_id →
    * audited circuit" agreement made checkable.

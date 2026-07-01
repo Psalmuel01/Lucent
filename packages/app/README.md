@@ -1,4 +1,4 @@
-# @ctd/app — confidential-token demo front-end
+# @lucent/app — confidential-token demo front-end
 
 The Next.js browser demo for the [confidential token](../../README.md). One page per persona:
 
@@ -6,7 +6,7 @@ The Next.js browser demo for the [confidential token](../../README.md). One page
 - **`/verify`** — the disclosure receiver: mint a one-time request, verify the returned proof against the chain. No wallet needed.
 - **`/auditor`** — decrypt transfer amounts with the registered auditor key.
 
-The orchestration (prover cache, Freighter signing, the five ops) lives in `lib/wallet.ts` over [`@ctd/sdk`](../sdk/README.md).
+The orchestration (prover cache, Freighter signing, the five ops) lives in `lib/wallet.ts` over [`@lucent/sdk`](../sdk/README.md).
 
 ## Run
 
@@ -27,7 +27,7 @@ Point the app at a deployed indexer to get full history:
 NEXT_PUBLIC_INDEXER_URL=https://confidential-token-indexer.<account>.workers.dev
 ```
 
-Unset, the app runs **RPC-only**: events older than the ~7-day window are unavailable, so a fresh client must **sync at least once per retention period** or an aged-out incoming-transfer opening becomes unrecoverable. See [`@ctd/indexer`](../indexer/README.md) to deploy one.
+Unset, the app runs **RPC-only**: events older than the ~7-day window are unavailable, so a fresh client must **sync at least once per retention period** or an aged-out incoming-transfer opening becomes unrecoverable. See [`@lucent/indexer`](../indexer/README.md) to deploy one.
 
 ## Cross-origin isolation
 

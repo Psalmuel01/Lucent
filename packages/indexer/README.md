@@ -1,4 +1,4 @@
-# @ctd/indexer
+# @lucent/indexer
 
 A durable, full-history event source for the confidential-token demo — the complement to the RPC `getEvents` API, which only retains ~7 days of ledgers.
 
@@ -7,12 +7,12 @@ Stellar testnet ──► Goldsky turbo pipeline ──► Postgres (raw_events)
                                                    │
                                   Cloudflare Worker (Hono) ──► JSON API
                                                    │
-                                          @ctd/sdk hybrid source
+                                          @lucent/sdk hybrid source
 ```
 
 - **Goldsky pipeline** (`goldsky/pipeline-*.yaml`) mirrors Stellar events whose first topic symbol is one of `register | deposit | merge | withdraw | transfer` into a Postgres `raw_events` table.
 - **Cloudflare Worker** (`handler/`) exposes a thin read API over that table.
-- The **SDK** (`@ctd/sdk`) decodes the rows into `ConfidentialEvent`s — the Worker passes the Goldsky `topic`/`value` JSON through untouched so there is a single decoding path, pinned by `packages/sdk/test/indexer-parity.mjs`.
+- The **SDK** (`@lucent/sdk`) decodes the rows into `ConfidentialEvent`s — the Worker passes the Goldsky `topic`/`value` JSON through untouched so there is a single decoding path, pinned by `packages/sdk/test/indexer-parity.mjs`.
 
 ## Deploy
 
@@ -59,7 +59,7 @@ After the pipeline has synced events, pin the SDK decoder against real rows:
 ```bash
 CTD_INDEXER_URL=https://…workers.dev \
 CTD_TOKEN=<token contract id> \
-pnpm --filter @ctd/sdk exec tsx test/indexer-parity.mjs
+pnpm --filter @lucent/sdk exec tsx test/indexer-parity.mjs
 ```
 
 This compares indexer-decoded events to RPC-decoded events for the same range — they must be byte-identical.
@@ -67,6 +67,6 @@ This compares indexer-decoded events to RPC-decoded events for the same range �
 ## Check
 
 ```bash
-pnpm --filter @ctd/indexer check   # tsc --noEmit
-pnpm --filter @ctd/indexer dev      # wrangler dev (needs DATABASE_URL)
+pnpm --filter @lucent/indexer check   # tsc --noEmit
+pnpm --filter @lucent/indexer dev      # wrangler dev (needs DATABASE_URL)
 ```

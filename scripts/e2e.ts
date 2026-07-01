@@ -13,7 +13,7 @@
  * the whole pipeline: crypto parity, proof acceptance, XDR envelopes, event
  * parsing, and state reconstruction.
  *
- * Usage: pnpm --filter @ctd/sdk exec tsx ../../scripts/e2e.ts
+ * Usage: pnpm --filter @lucent/sdk exec tsx ../../scripts/e2e.ts
  * Uses two FRESH friendbot-funded accounts each run (so register never clashes).
  */
 

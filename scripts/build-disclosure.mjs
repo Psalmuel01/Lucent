@@ -10,7 +10,7 @@
 // at verification time against a fresh derivation from the circuit bytecode.
 //
 // Run from the repo root:  pnpm build:disclosure
-// (executes inside the @ctd/sdk package so bb.js resolves; requires nargo
+// (executes inside the @lucent/sdk package so bb.js resolves; requires nargo
 // 1.0.0-beta.9 on PATH and the bb CRS cache, same as the SDK prove tests).
 
 import { execFileSync } from "node:child_process";

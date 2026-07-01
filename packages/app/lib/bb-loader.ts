@@ -18,7 +18,7 @@
  * and this module gets pulled into the SSR bundle even though proving is
  * browser-only.
  */
-import { setUltraHonkBackendLoader } from "@ctd/sdk";
+import { setUltraHonkBackendLoader } from "@lucent/sdk";
 
 let nativeImport: ((url: string) => Promise<Record<string, unknown>>) | undefined;
 

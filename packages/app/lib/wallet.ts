@@ -1,5 +1,5 @@
 /**
- * ConfidentialWallet — UI-facing orchestration over @ctd/sdk.
+ * ConfidentialWallet — UI-facing orchestration over @lucent/sdk.
  *
  * Holds the RPC client, the Freighter signer, the user's confidential key set,
  * a local state engine, and lazily-created provers. All proving happens in the
@@ -77,12 +77,12 @@ import {
   type TransferEvent,
   type DisclosureRequest,
   type DisclosureBundle,
-} from "@ctd/sdk";
-import registerCircuit from "@ctd/sdk/circuits/register.json";
-import withdrawCircuit from "@ctd/sdk/circuits/withdraw.json";
-import transferCircuit from "@ctd/sdk/circuits/transfer.json";
-import discloseRecipientCircuit from "@ctd/disclosure/artifacts/disclose_recipient.json";
-import discloseSenderCircuit from "@ctd/disclosure/artifacts/disclose_sender.json";
+} from "@lucent/sdk";
+import registerCircuit from "@lucent/sdk/circuits/register.json";
+import withdrawCircuit from "@lucent/sdk/circuits/withdraw.json";
+import transferCircuit from "@lucent/sdk/circuits/transfer.json";
+import discloseRecipientCircuit from "@lucent/disclosure/artifacts/disclose_recipient.json";
+import discloseSenderCircuit from "@lucent/disclosure/artifacts/disclose_sender.json";
 
 import { DEPLOYMENT } from "./deployment";
 import { connectFreighter } from "./freighter";
@@ -139,7 +139,7 @@ export class ConfidentialWallet {
     });
 
     const addrF = addressToField(DEPLOYMENT.contracts.token);
-    const skKey = `ctd:sk:${DEPLOYMENT.contracts.token}:${signer.publicKey}`;
+    const skKey = `lucent:sk:${DEPLOYMENT.contracts.token}:${signer.publicKey}`;
     let sk: bigint;
     const stored = localStorage.getItem(skKey);
     if (stored) {
@@ -299,7 +299,7 @@ export class ConfidentialWallet {
     onPhase?: (p: TxPhase) => void,
   ): Promise<void> {
     const kAud = await this.client.auditorKey(DEPLOYMENT.auditorId);
-    const resolved: { pvk: import("@ctd/sdk").Point; amount: bigint }[] = [];
+    const resolved: { pvk: import("@lucent/sdk").Point; amount: bigint }[] = [];
     for (const p of payments) {
       const acct = await this.client.confidentialBalance(p.employee);
       if (!acct) throw new Error(`employee ${p.employee.slice(0, 8)}… is not registered`);

@@ -8,7 +8,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import type { ConfidentialEvent, TransferEvent, DisclosureRequest } from "@ctd/sdk";
+import type { ConfidentialEvent, TransferEvent, DisclosureRequest } from "@lucent/sdk";
 import type { ConfidentialWallet } from "@/lib/wallet";
 import { DEPLOYMENT } from "@/lib/deployment";
 import { errMsg } from "@/lib/err";

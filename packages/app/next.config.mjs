@@ -15,7 +15,7 @@ const crossOriginIsolation = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ["@ctd/sdk"],
+  transpilePackages: ["@lucent/sdk"],
   async headers() {
     return [{ source: "/(.*)", headers: crossOriginIsolation }];
   },

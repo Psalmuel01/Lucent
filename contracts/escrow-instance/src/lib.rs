@@ -1,12 +1,9 @@
 //! PrivateEscrow instance — one two-party confidential escrow on Stellar.
 //!
-//! A port of `shade-ref/contracts/PrivateEscrow.sol` to the confidential-token
-//! model. The Solidity version custodies an encrypted `euint64` inside a single
-//! contract holding many escrows. That does not translate directly: here a
-//! confidential balance is keyed by *contract address*, so one contract can hold
-//! exactly one isolated confidential balance. We therefore use a **factory**
-//! (the `private-escrow-factory-contract` crate) that deploys one instance of
-//! this contract per escrow:
+//! A confidential balance is keyed by *contract address*, so one contract can
+//! hold exactly one isolated confidential balance. Escrow therefore uses a
+//! **factory** (the `private-escrow-factory-contract` crate) that deploys one
+//! instance of this contract per escrow:
 //!
 //! * Each instance is its own contract address, hence its own confidential
 //!   account with an isolated balance.

@@ -63,17 +63,21 @@ take a few seconds) — the UI never looks frozen. All balance reads go through 
 `StateEngine` local persistence (the Soroban RPC only serves ~7 days of events), with a
 "matches chain" badge from `verifyAgainstChain`.
 
-## Getting started
+## Run the front-end
 
 ```bash
 pnpm install
-pnpm build:sdk
-pnpm dev                     # http://localhost:3000  (needs Freighter on Testnet)
+pnpm build:sdk               # the app imports @lucent/sdk from dist
+pnpm dev                     # http://localhost:3000
 ```
 
-Shield / Send / Auditor / Prove work against the already-deployed token below. Payroll
-and Escrow need the Lucent contracts deployed (next section) with their ids set in the
-app env.
+Then install [Freighter](https://freighter.app/), switch it to **Testnet**, and fund
+your account (Freighter's friendbot). `next dev` already serves the cross-origin-isolation
+headers bb.js needs, so in-browser proving works locally with no extra setup.
+
+Shield / Send / Auditor / Prove work immediately against the token deployment in
+`deployments/testnet.json`. **Payroll and Escrow** show a "not configured" notice until
+you deploy the Lucent contracts (next section) — after which they light up automatically.
 
 ## Building & testing the contracts
 
@@ -88,7 +92,7 @@ cargo test --manifest-path contracts/Cargo.toml   # unit tests (mock-token based
 The new contracts are fully unit-tested against a mock confidential token:
 
 - `contracts/payroll` — PayrollVault state machine, employer auth, atomic batch payout, cancel paths (10 tests).
-- `contracts/escrow` — PrivateEscrow instance: every state transition, release-window timing, arbiter vs. no-arbiter branches, auth (16 tests).
+- `contracts/escrow-instance` — PrivateEscrow instance: every state transition, release-window timing, arbiter vs. no-arbiter branches, auth (16 tests).
 - `contracts/escrow-factory` — deploys a real instance and drives it fund → mark_completed → release (1 test).
 
 ## Deploying to testnet (your own instance)
@@ -97,15 +101,13 @@ The new contracts are fully unit-tested against a mock confidential token:
 pnpm deploy:contracts       # deploys token stack + PayrollVault + PrivateEscrow factory
 ```
 
-This writes `deployments/testnet.json` and prints the two ids to put in
-`packages/app/.env.local`:
+This deploys the whole stack under your `admin` stellar CLI identity and writes
+`deployments/testnet.json` **and** `packages/app/lib/deployment.json` — the app reads the
+latter, so it now points at your deployment with **no code edit or env var**; just rebuild
+and run. (`NEXT_PUBLIC_PAYROLL_ID` / `NEXT_PUBLIC_ESCROW_FACTORY_ID` exist only to override
+those two ids ahead of a redeploy.)
 
-```
-NEXT_PUBLIC_PAYROLL_ID=C...
-NEXT_PUBLIC_ESCROW_FACTORY_ID=C...
-```
-
-Then rebuild/run the app. A full end-to-end walkthrough (real proofs on testnet):
+A full end-to-end walkthrough (real proofs on testnet):
 
 1. **Shield** — connect Freighter, register, deposit, merge.
 2. **Send** — confidential transfer to a second registered account.
@@ -124,15 +126,14 @@ contracts/                    Rust/Soroban (separate Cargo workspace)
   verifier/                   UltraHonk VK registry
   auditor/                    Grumpkin auditor-key registry
   payroll/                    PayrollVault — orchestrator (Lucent)
-  escrow/                     PrivateEscrow instance — custodial, one per escrow (Lucent)
+  escrow-instance/            PrivateEscrow instance — custodial, one per escrow (Lucent)
   escrow-factory/             PrivateEscrow factory — deploys instances (Lucent)
 packages/
-  sdk/        @ctd/sdk        crypto · witness · proving · chain (incl. payroll/escrow) · state · auditor · disclosure
-  disclosure/ @ctd/disclosure shared disclosure circuits + pinned VKs
-  app/        @ctd/app        Next.js product front-end (Freighter wallet)
-  indexer/    @ctd/indexer    optional Goldsky indexer for event history
-scripts/                      deploy.ts · e2e.ts · e2e-disclosure.ts
-shade-ref/                    Shade's Solidity + frontend — REFERENCE ONLY, never edited
+  sdk/        @lucent/sdk        crypto · witness · proving · chain (incl. payroll/escrow) · state · auditor · disclosure
+  disclosure/ @lucent/disclosure shared disclosure circuits + pinned VKs
+  app/        @lucent/app        Next.js product front-end (Freighter wallet)
+  indexer/    @lucent/indexer    optional Goldsky indexer for event history
+scripts/                         deploy.ts · e2e.ts · e2e-disclosure.ts
 ```
 
 The protocol itself lives in [OpenZeppelin `stellar-contracts`](https://github.com/OpenZeppelin/stellar-contracts/tree/feat/confidential-verifier-ultrahonk),

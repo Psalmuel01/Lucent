@@ -24,11 +24,11 @@ import {
   type DisclosureRequest,
   type DisclosureBundle,
   type VerifiedDisclosure,
-} from "@ctd/sdk";
-import discloseRecipientCircuit from "@ctd/disclosure/artifacts/disclose_recipient.json";
-import discloseRecipientVk from "@ctd/disclosure/artifacts/disclose_recipient.vk.json";
-import discloseSenderCircuit from "@ctd/disclosure/artifacts/disclose_sender.json";
-import discloseSenderVk from "@ctd/disclosure/artifacts/disclose_sender.vk.json";
+} from "@lucent/sdk";
+import discloseRecipientCircuit from "@lucent/disclosure/artifacts/disclose_recipient.json";
+import discloseRecipientVk from "@lucent/disclosure/artifacts/disclose_recipient.vk.json";
+import discloseSenderCircuit from "@lucent/disclosure/artifacts/disclose_sender.json";
+import discloseSenderVk from "@lucent/disclosure/artifacts/disclose_sender.vk.json";
 
 import { DEPLOYMENT } from "@/lib/deployment";
 import { ensureBrowserBackend } from "@/lib/bb-loader";
@@ -36,8 +36,8 @@ import { errMsg } from "@/lib/err";
 import { GlassCard, ProofButton, SectionTitle, inputCls } from "@/lib/ui";
 import { CopyButton } from "../copy-button";
 
-const RR_KEY = "ctd:disclosure:rR";
-const REQUEST_KEY = "ctd:disclosure:request";
+const RR_KEY = "lucent:disclosure:rR";
+const REQUEST_KEY = "lucent:disclosure:request";
 
 const ARTIFACTS = {
   disclose_recipient: { circuit: discloseRecipientCircuit, vk: discloseRecipientVk },

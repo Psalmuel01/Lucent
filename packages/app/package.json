@@ -1,5 +1,5 @@
 {
-  "name": "@ctd/app",
+  "name": "@lucent/app",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -16,8 +16,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@ctd/disclosure": "workspace:*",
-    "@ctd/sdk": "workspace:*",
+    "@lucent/disclosure": "workspace:*",
+    "@lucent/sdk": "workspace:*",
     "@opennextjs/cloudflare": "^1.19.11",
     "@stellar/freighter-api": "^4.1.0",
     "@stellar/stellar-sdk": "^14.2.0",
