@@ -1,80 +1,55 @@
 /**
- * Landing page: a persona chooser. The demo is a three-hander — pick a role and
- * land on that persona's page. The same three links live in the top bar of every
- * page (app/nav.tsx).
+ * Lucent landing — the product overview and entry points to the six screens.
  */
 
 import Link from "next/link";
 import { DEPLOYMENT } from "@/lib/deployment";
 
-const PERSONA_CARDS = [
-  {
-    href: "/wallet",
-    title: "Account holder",
-    tagline: "token holder",
-    accent: "border-indigo-500/40 hover:border-indigo-400/70",
-    cta: "Open wallet →",
-    ctaCls: "text-indigo-300",
-    blurb:
-      "Hold and move balances without exposing amounts on-chain. Connect a wallet to deposit, " +
-      "transfer, and withdraw. Each operation is a zero-knowledge proof generated client-side, " +
-      "and on-chain your balance is only a curve commitment.",
-  },
-  {
-    href: "/verify",
-    title: "Verifier",
-    tagline: "verifying counterparty",
-    accent: "border-cyan-500/40 hover:border-cyan-400/70",
-    cta: "Verify a disclosure →",
-    ctaCls: "text-cyan-300",
-    blurb:
-      "A compliance desk, tax authority, or counterparty that needs proof of a single payment. " +
-      "Issue a one-time request, receive a proof in return, and learn exactly one amount about " +
-      "exactly one transfer. No wallet required.",
-  },
-  {
-    href: "/auditor",
-    title: "Auditor",
-    tagline: "designated auditor",
-    accent: "border-amber-500/40 hover:border-amber-400/70",
-    cta: "Open auditor console →",
-    ctaCls: "text-amber-300",
-    blurb:
-      "Every account in this deployment registers under the auditor key, so each transfer and " +
-      "withdrawal carries ciphertexts only the auditor can open.",
-  },
+const CARDS = [
+  { href: "/shield", title: "Shield", blurb: "Move public XLM into a confidential balance and back out. Deposit, merge, and withdraw — amounts never appear on-chain." },
+  { href: "/send", title: "Send", blurb: "Confidential transfers to any registered account. The amount is a curve commitment; only a client-side proof moves it." },
+  { href: "/payroll", title: "Payroll", blurb: "Distribute salaries so no employee can see another's. The employer, as auditor, can decrypt every amount." },
+  { href: "/escrow", title: "Escrow", blurb: "Two-party escrow whose locked amount stays hidden through the full state machine — release, dispute, resolve, refund." },
+  { href: "/auditor", title: "Auditor", blurb: "The compliance console: decrypt every transfer amount with the registered Grumpkin auditor key." },
+  { href: "/prove", title: "Prove", blurb: "Selective disclosure — prove one transfer paid exactly X to one counterparty, revealing nothing else." },
 ] as const;
 
 export default function LandingPage() {
   return (
-    <main className="mx-auto max-w-3xl px-5 py-12">
-      <header className="mb-10">
-        <h1 className="text-3xl font-semibold tracking-tight">Confidential transfers</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-neutral-400">
-          Balances are Grumpkin Pedersen commitments and every transfer is verified on-chain by an
-          UltraHonk proof. Amounts stay private, disclosed only to the parties entitled to see
-          them. Select a role to begin.
+    <main className="mx-auto max-w-5xl px-5 py-14">
+      <header className="mb-12 max-w-2xl">
+        <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-medium text-amber-300">
+          Confidential payments · Stellar testnet
+        </div>
+        <h1 className="text-4xl font-semibold tracking-tight text-neutral-50">
+          Payments that stay private,
+          <br />
+          <span className="text-amber-400">auditable when they must be.</span>
+        </h1>
+        <p className="mt-4 text-sm leading-relaxed text-neutral-400">
+          Lucent is a confidential-payments product built on Stellar&apos;s confidential token:
+          balances are Grumpkin Pedersen commitments and every spend is an UltraHonk zero-knowledge
+          proof generated in your browser. On top sit payroll and escrow, a dual-auditor compliance
+          channel, and off-chain selective disclosure.
         </p>
       </header>
 
-      <div className="space-y-4">
-        {PERSONA_CARDS.map((p) => (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {CARDS.map((c) => (
           <Link
-            key={p.href}
-            href={p.href}
-            className={`block rounded-lg border bg-neutral-900/40 p-5 transition-colors ${p.accent}`}
+            key={c.href}
+            href={c.href}
+            className="group rounded-2xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur transition-colors hover:border-amber-400/40"
           >
-            <div className="flex items-baseline gap-2">
-              <h2 className="text-lg font-medium">{p.title}</h2>
-              <span className="text-sm text-neutral-500">— {p.tagline}</span>
-            </div>
-            <p className="mt-2 text-sm leading-relaxed text-neutral-400">{p.blurb}</p>
-            <span className={`mt-3 inline-block text-sm font-medium ${p.ctaCls}`}>{p.cta}</span>
+            <h2 className="text-lg font-semibold text-neutral-100 group-hover:text-amber-300">
+              {c.title}
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-neutral-400">{c.blurb}</p>
           </Link>
         ))}
       </div>
 
-      <footer className="mt-10 font-mono text-xs text-neutral-600">
+      <footer className="mt-12 font-mono text-xs text-neutral-600">
         token {short(DEPLOYMENT.contracts.token)} · verifier {short(DEPLOYMENT.contracts.verifier)} ·
         auditor {short(DEPLOYMENT.contracts.auditor)} · Stellar testnet · unaudited reference demo
       </footer>

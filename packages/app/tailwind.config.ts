@@ -85,6 +85,7 @@ export default {
       colors: varColors,
       fontFamily: {
         sans: [
+          "Space Grotesk",
           "ui-sans-serif",
           "system-ui",
           "-apple-system",

@@ -10,7 +10,7 @@
  * chained — each one's input opening is the previous one's output opening.
  */
 
-import { xdr, Address, nativeToScVal } from "@stellar/stellar-sdk";
+import { xdr, Address, nativeToScVal, scValToNative } from "@stellar/stellar-sdk";
 
 import type { ChainClient, Signer, InvokeResult } from "./client.js";
 import { encodeTransferData } from "./payload.js";
@@ -22,6 +22,12 @@ import type { CircuitProver } from "../proving/prover.js";
 const addr = (a: string): xdr.ScVal => new Address(a).toScVal();
 const u64 = (v: bigint): xdr.ScVal => nativeToScVal(v, { type: "u64" });
 const bytes = (b: Uint8Array): xdr.ScVal => xdr.ScVal.scvBytes(Buffer.from(b));
+
+/** Parse the `u64` id returned by `create_template` / `create_run`. */
+export function parseCreatedId(result: InvokeResult): bigint {
+  if (!result.returnValue) throw new Error("call returned no value");
+  return scValToNative(result.returnValue) as bigint;
+}
 
 /** `create_template(employer, employees) -> u64`. */
 export function submitCreateTemplate(
@@ -134,6 +140,55 @@ export async function buildPayrollTransfers(params: {
     r = w.next.r;
   }
   return { blobs, next: { v, r } };
+}
+
+// ---- reads -----------------------------------------------------------------
+
+export enum RunStatus {
+  Scheduled = 0,
+  Funded = 1,
+  Executed = 2,
+  Cancelled = 3,
+}
+
+export interface TemplateInfo {
+  employer: string;
+  employees: string[];
+  active: boolean;
+  createdAt: bigint;
+}
+
+export interface RunInfo {
+  templateId: bigint;
+  status: RunStatus;
+  executedAt: bigint;
+}
+
+export async function readTemplateCount(client: ChainClient): Promise<bigint> {
+  return scValToNative(await client.simulate(payrollId(client), "template_count", [])) as bigint;
+}
+
+export async function readRunCount(client: ChainClient): Promise<bigint> {
+  return scValToNative(await client.simulate(payrollId(client), "run_count", [])) as bigint;
+}
+
+export async function readTemplate(client: ChainClient, id: bigint): Promise<TemplateInfo> {
+  const n = scValToNative(await client.simulate(payrollId(client), "get_template", [u64(id)])) as {
+    employer: string;
+    employees: string[];
+    active: boolean;
+    created_at: bigint;
+  };
+  return { employer: n.employer, employees: n.employees, active: n.active, createdAt: n.created_at };
+}
+
+export async function readRun(client: ChainClient, id: bigint): Promise<RunInfo> {
+  const n = scValToNative(await client.simulate(payrollId(client), "get_run", [u64(id)])) as {
+    template_id: bigint;
+    status: number;
+    executed_at: bigint;
+  };
+  return { templateId: n.template_id, status: n.status as RunStatus, executedAt: n.executed_at };
 }
 
 function payrollId(client: ChainClient): string {

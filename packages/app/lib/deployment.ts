@@ -30,5 +30,12 @@ export const DEPLOYMENT = {
     verifier: "CDCET36PIS44DWJM5UQSSI4ZHGRDSBIIQW4G4ALPYK3Y6FEQGY5ZWFXL",
     auditor: "CA4II62E35TQKPGHCPBD6EBAS732GSGS6H37UUWKEDHR4YTBVMPHVY4L",
     underlying: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+    /**
+     * Lucent contracts. Populated after `pnpm deploy:contracts` (which writes
+     * deployments/testnet.json) — read at build time from env so the Payroll and
+     * Escrow screens can find them. Empty until you deploy your own.
+     */
+    payroll: process.env.NEXT_PUBLIC_PAYROLL_ID || "",
+    escrowFactory: process.env.NEXT_PUBLIC_ESCROW_FACTORY_ID || "",
   },
 } as const;

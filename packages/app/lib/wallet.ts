@@ -31,6 +31,40 @@ import {
   submitMerge,
   submitWithdraw,
   submitTransfer,
+  encodeRegisterData,
+  encodeTransferData,
+  generateKeys,
+  // payroll
+  submitCreateTemplate,
+  submitCreateRun,
+  submitFundRun,
+  submitExecuteRun,
+  submitCancelRun,
+  submitClaim,
+  buildPayrollTransfers,
+  parseCreatedId,
+  readTemplateCount,
+  readRunCount,
+  readTemplate,
+  readRun,
+  type TemplateInfo,
+  type RunInfo,
+  // escrow
+  submitCreateEscrow,
+  parseCreatedEscrow,
+  submitFund,
+  submitMarkCompleted,
+  submitRelease,
+  submitDispute,
+  submitClaimAfterWindow,
+  submitResolveToRecipient,
+  submitResolveToDepositor,
+  submitTimeout,
+  submitCancelEscrow,
+  readEscrow,
+  readEscrowCount,
+  readEscrowAddress,
+  type EscrowInfo,
   IndexerClient,
   hybridFetchEvents,
   proveRecipientDisclosure,
@@ -227,6 +261,277 @@ export class ConfidentialWallet {
     const r = await submitWithdraw(this.client, this.signer, this.address, this.address, amount, w, proof);
     await this.engine.setSpendable(w.next);
     this.log(`withdrew ${amount} → public (tx ${r.hash.slice(0, 10)}…)`);
+  }
+
+  // ---- payroll (PayrollVault orchestrator) --------------------------------
+
+  /** Employer: create a template with a fixed employee set. Returns template id. */
+  async createTemplate(employees: string[]): Promise<bigint> {
+    this.log(`creating payroll template (${employees.length} employees)…`);
+    const r = await submitCreateTemplate(this.client, this.signer, this.address, employees);
+    const id = parseCreatedId(r);
+    this.log(`template #${id} created (tx ${r.hash.slice(0, 10)}…)`);
+    return id;
+  }
+
+  /** Employer: open a run against a template. Returns run id. */
+  async createRun(templateId: bigint): Promise<bigint> {
+    const r = await submitCreateRun(this.client, this.signer, templateId);
+    const id = parseCreatedId(r);
+    this.log(`run #${id} opened on template #${templateId} (tx ${r.hash.slice(0, 10)}…)`);
+    return id;
+  }
+
+  /** Employer: mark a run funded. */
+  async fundRun(runId: bigint): Promise<void> {
+    const r = await submitFundRun(this.client, this.signer, runId);
+    this.log(`run #${runId} funded (tx ${r.hash.slice(0, 10)}…)`);
+  }
+
+  /**
+   * Employer: execute a run — one confidential transfer per employee, proven in
+   * the browser and routed atomically through the vault. Salaries never touch
+   * chain storage; only the (encrypted) transfers do.
+   */
+  async executeRun(
+    runId: bigint,
+    payments: { employee: string; amount: bigint }[],
+    onPhase?: (p: TxPhase) => void,
+  ): Promise<void> {
+    const kAud = await this.client.auditorKey(DEPLOYMENT.auditorId);
+    const resolved: { pvk: import("@ctd/sdk").Point; amount: bigint }[] = [];
+    for (const p of payments) {
+      const acct = await this.client.confidentialBalance(p.employee);
+      if (!acct) throw new Error(`employee ${p.employee.slice(0, 8)}… is not registered`);
+      resolved.push({ pvk: acct.viewingPublicKey, amount: p.amount });
+    }
+
+    const s = await this.engine.sync();
+    const total = payments.reduce((a, p) => a + p.amount, 0n);
+    if (s.spendable.v < total) {
+      throw new Error(`insufficient spendable balance (${s.spendable.v}) for run total ${total}`);
+    }
+
+    onPhase?.("proving");
+    this.log(`proving ${payments.length} salary transfers…`);
+    const { blobs, next } = await buildPayrollTransfers({
+      keys: this.keys,
+      v: s.spendable.v,
+      r: s.spendable.r,
+      kAud,
+      prover: this.prover("transfer"),
+      payments: resolved,
+    });
+
+    onPhase?.("submitting");
+    this.log("submitting execute_run…");
+    const r = await submitExecuteRun(this.client, this.signer, runId, blobs);
+    await this.engine.setSpendable(next);
+    this.log(`run #${runId} executed (tx ${r.hash.slice(0, 10)}…)`);
+  }
+
+  /** Employer: cancel a run before execution. */
+  async cancelRun(runId: bigint): Promise<void> {
+    const r = await submitCancelRun(this.client, this.signer, runId);
+    this.log(`run #${runId} cancelled (tx ${r.hash.slice(0, 10)}…)`);
+  }
+
+  /** Employee: fold received salary into spendable (token `merge`, no proof). */
+  async claimSalary(): Promise<void> {
+    const r = await submitClaim(this.client, this.signer, this.address);
+    this.log(`claimed salary (tx ${r.hash.slice(0, 10)}…)`);
+  }
+
+  async payrollTemplateCount(): Promise<bigint> {
+    return readTemplateCount(this.client);
+  }
+  async payrollRunCount(): Promise<bigint> {
+    return readRunCount(this.client);
+  }
+  async payrollTemplate(id: bigint): Promise<TemplateInfo> {
+    return readTemplate(this.client, id);
+  }
+  async payrollRun(id: bigint): Promise<RunInfo> {
+    return readRun(this.client, id);
+  }
+
+  // ---- escrow (PrivateEscrow factory + instances) -------------------------
+
+  /** Depositor: deploy a new escrow instance. Returns its id and address. */
+  async createEscrow(
+    recipient: string,
+    arbiter: string | null,
+    timeoutSeconds: bigint,
+  ): Promise<{ id: bigint; address: string }> {
+    this.log("deploying escrow instance…");
+    const r = await submitCreateEscrow(
+      this.client,
+      this.signer,
+      this.address,
+      recipient,
+      arbiter,
+      timeoutSeconds,
+    );
+    const created = parseCreatedEscrow(r);
+    this.log(`escrow #${created.id} deployed at ${created.address.slice(0, 8)}…`);
+    return created;
+  }
+
+  /**
+   * Depositor: fund an escrow. Builds every confidential blob the instance
+   * needs — a register proof for the instance's fresh Grumpkin identity, the
+   * depositor→instance transfer, and the two pre-generated payout proofs
+   * (instance→recipient and instance→depositor). The instance's post-fund
+   * spendable opening is deterministic `(amount, r_tx)`, so both payout proofs
+   * are valid and the state machine picks exactly one at settlement.
+   *
+   * The instance secret is generated here and discarded (see the contract's
+   * trust caveat).
+   */
+  async fundEscrow(
+    instance: string,
+    recipient: string,
+    amount: bigint,
+    onPhase?: (p: TxPhase) => void,
+  ): Promise<void> {
+    const recipientAcct = await this.client.confidentialBalance(recipient);
+    if (!recipientAcct) throw new Error("recipient is not registered");
+    const kAud = await this.client.auditorKey(DEPLOYMENT.auditorId);
+
+    const s = await this.engine.sync();
+    if (s.spendable.v < amount) {
+      throw new Error(`insufficient spendable balance (${s.spendable.v})`);
+    }
+
+    // Fresh, ephemeral identity for the instance's confidential account.
+    const instanceKeys = generateKeys(this.keys.addrF);
+
+    onPhase?.("proving");
+    this.log("proving escrow register + transfers (4 proofs)…");
+
+    const rw = buildRegisterWitness(instanceKeys);
+    const { proof: rproof } = await this.prover("register").prove(rw.inputs);
+    const registerData = new Uint8Array(encodeRegisterData(rw, rproof).bytes());
+
+    const tin = buildTransferWitness({
+      keys: this.keys,
+      v: s.spendable.v,
+      r: s.spendable.r,
+      amount,
+      pvkB: instanceKeys.PVK,
+      kAudR: kAud,
+      kAudS: kAud,
+    });
+    const { proof: tinProof } = await this.prover("transfer").prove(tin.inputs);
+    const transferIn = new Uint8Array(encodeTransferData(tin, tinProof).bytes());
+
+    // Instance spendable after fund + merge = the transfer's recipient opening.
+    const instV = amount;
+    const instR = tin.recipientView.rTx;
+
+    const rel = buildTransferWitness({
+      keys: instanceKeys,
+      v: instV,
+      r: instR,
+      amount,
+      pvkB: recipientAcct.viewingPublicKey,
+      kAudR: kAud,
+      kAudS: kAud,
+    });
+    const { proof: relProof } = await this.prover("transfer").prove(rel.inputs);
+    const releaseProof = new Uint8Array(encodeTransferData(rel, relProof).bytes());
+
+    const ref = buildTransferWitness({
+      keys: instanceKeys,
+      v: instV,
+      r: instR,
+      amount,
+      pvkB: this.keys.PVK,
+      kAudR: kAud,
+      kAudS: kAud,
+    });
+    const { proof: refProof } = await this.prover("transfer").prove(ref.inputs);
+    const refundProof = new Uint8Array(encodeTransferData(ref, refProof).bytes());
+
+    onPhase?.("submitting");
+    this.log("submitting fund…");
+    const r = await submitFund(this.client, this.signer, instance, {
+      registerData,
+      auditorId: DEPLOYMENT.auditorId,
+      transferIn,
+      releaseProof,
+      refundProof,
+    });
+    await this.engine.setSpendable(tin.next);
+    this.log(`escrow funded (tx ${r.hash.slice(0, 10)}…)`);
+  }
+
+  markCompleted(instance: string, proofUri: string) {
+    return submitMarkCompleted(this.client, this.signer, instance, proofUri).then((r) =>
+      this.log(`marked completed (tx ${r.hash.slice(0, 10)}…)`),
+    );
+  }
+  releaseEscrow(instance: string) {
+    return submitRelease(this.client, this.signer, instance).then((r) =>
+      this.log(`released (tx ${r.hash.slice(0, 10)}…)`),
+    );
+  }
+  disputeEscrow(instance: string, proofUri: string) {
+    return submitDispute(this.client, this.signer, instance, proofUri).then((r) =>
+      this.log(`disputed (tx ${r.hash.slice(0, 10)}…)`),
+    );
+  }
+  claimAfterWindow(instance: string) {
+    return submitClaimAfterWindow(this.client, this.signer, instance).then((r) =>
+      this.log(`claimed after window (tx ${r.hash.slice(0, 10)}…)`),
+    );
+  }
+  resolveToRecipient(instance: string) {
+    return submitResolveToRecipient(this.client, this.signer, instance).then((r) =>
+      this.log(`resolved to recipient (tx ${r.hash.slice(0, 10)}…)`),
+    );
+  }
+  resolveToDepositor(instance: string) {
+    return submitResolveToDepositor(this.client, this.signer, instance).then((r) =>
+      this.log(`resolved to depositor (tx ${r.hash.slice(0, 10)}…)`),
+    );
+  }
+  timeoutEscrow(instance: string) {
+    return submitTimeout(this.client, this.signer, instance).then((r) =>
+      this.log(`timed out (tx ${r.hash.slice(0, 10)}…)`),
+    );
+  }
+  cancelEscrow(instance: string) {
+    return submitCancelEscrow(this.client, this.signer, instance).then((r) =>
+      this.log(`cancelled (tx ${r.hash.slice(0, 10)}…)`),
+    );
+  }
+
+  async escrowInfo(instance: string): Promise<EscrowInfo> {
+    return readEscrow(this.client, instance);
+  }
+
+  /** List all deployed escrows that involve this account (depositor/recipient/arbiter). */
+  async listEscrows(): Promise<{ id: bigint; address: string; info: EscrowInfo }[]> {
+    const count = await readEscrowCount(this.client);
+    const out: { id: bigint; address: string; info: EscrowInfo }[] = [];
+    for (let i = 1n; i <= count; i++) {
+      const address = await readEscrowAddress(this.client, i);
+      if (!address) continue;
+      try {
+        const info = await readEscrow(this.client, address);
+        if (
+          info.depositor === this.address ||
+          info.recipient === this.address ||
+          info.arbiter === this.address
+        ) {
+          out.push({ id: i, address, info });
+        }
+      } catch {
+        /* skip unreadable */
+      }
+    }
+    return out;
   }
 
   /**

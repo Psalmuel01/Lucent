@@ -1,24 +1,34 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { PersonaNav } from "./nav";
+import { ProductNav } from "./nav";
+import { WalletProvider } from "@/lib/wallet-context";
 
 export const metadata: Metadata = {
-  title: "Stellar Confidential Token",
+  title: "Lucent — confidential payments on Stellar",
   description:
-    "Confidential token transfers on Stellar — on-chain UltraHonk proofs, selective disclosure, and auditability (testnet).",
+    "Confidential payments on Stellar: shielded balances, private transfers, confidential payroll and escrow, with cryptographic auditability and selective disclosure. Testnet.",
 };
 
-// Set the theme class before first paint (no flash). Dark is the canonical
-// default; honor a stored choice, else fall back to the OS preference.
-const themeInit = `(function(){try{var t=localStorage.getItem('theme');if(t?t==='dark':matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.classList.add('dark');}}catch(e){document.documentElement.classList.add('dark');}})();`;
+// Lucent is dark-only. Force the dark palette before first paint.
+const themeInit = `document.documentElement.classList.add('dark');`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="dark" suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body className="min-h-screen font-sans">
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
-        <PersonaNav />
-        {children}
+        <WalletProvider>
+          <ProductNav />
+          {children}
+        </WalletProvider>
       </body>
     </html>
   );

@@ -48,6 +48,11 @@ export function parseCreatedEscrow(result: InvokeResult): { id: bigint; address:
   return { id, address };
 }
 
+/** `escrow_count()` (read-only). */
+export async function readEscrowCount(client: ChainClient): Promise<bigint> {
+  return scValToNative(await client.simulate(escrowFactoryId(client), "escrow_count", [])) as bigint;
+}
+
 /** `escrow_address(id) -> Option<Address>` (read-only). */
 export async function readEscrowAddress(
   client: ChainClient,
