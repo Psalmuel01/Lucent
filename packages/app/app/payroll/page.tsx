@@ -1,239 +1,403 @@
 "use client";
 
-import { useState } from "react";
-
-import { DEPLOYMENT } from "@/lib/deployment";
+import { useCallback, useEffect, useState } from "react";
+import { Plus, Users, Briefcase, ChevronRight, CheckCircle } from "lucide-react";
+import { RunStatus } from "@lucent/sdk";
+import { AppShell } from "@/components/layout/AppShell";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { GlassCard } from "@/components/ui/GlassCard";
+import { Button } from "@/components/ui/Button";
+import { Textarea } from "@/components/ui/Textarea";
+import { NumericKeypad } from "@/components/ui/NumericKeypad";
+import { TxStatus, type TxStep } from "@/components/ui/TxStatus";
+import { EncryptedBadge } from "@/components/ui/EncryptedBadge";
+import { SectionLabel } from "@/components/ui/SectionLabel";
+import { AddressDisplay } from "@/components/ui/AddressDisplay";
+import { Modal } from "@/components/ui/Modal";
+import { Pill } from "@/components/ui/Pill";
+import { ProofLoadingOverlay } from "@/components/ui/ProofLoadingOverlay";
 import { useWallet } from "@/lib/wallet-context";
 import { useAction } from "@/lib/use-action";
 import { errMsg } from "@/lib/err";
-import {
-  ConnectPrompt,
-  ErrorBox,
-  Field,
-  GlassCard,
-  Pill,
-  ProofButton,
-  SectionTitle,
-  inputCls,
-} from "@/lib/ui";
+import { DEPLOYMENT } from "@/lib/deployment";
+import { cn } from "@/lib/cn";
+
+type TopTab = "employer" | "employee";
+type EmployerTab = "templates" | "runs";
+
+interface TemplateRow {
+  id: bigint;
+  employees: string[];
+  active: boolean;
+}
+interface RunRow {
+  id: bigint;
+  templateId: bigint;
+  status: RunStatus;
+}
+
+const STATUS_META: Record<RunStatus, { label: string; tone: "neutral" | "amber" | "green" | "red" | "sky" }> = {
+  [RunStatus.Scheduled]: { label: "Scheduled", tone: "neutral" },
+  [RunStatus.Funded]: { label: "Funded", tone: "sky" },
+  [RunStatus.Executed]: { label: "Executed", tone: "green" },
+  [RunStatus.Cancelled]: { label: "Cancelled", tone: "red" },
+};
 
 export default function PayrollPage() {
-  const { wallet, connect, connecting, error, setError } = useWallet();
+  const { wallet, view, connect, connecting, error, setError } = useWallet();
   const { run, busy, phase } = useAction();
 
+  const [topTab, setTopTab] = useState<TopTab>("employer");
+  const [employerTab, setEmployerTab] = useState<EmployerTab>("templates");
+  const [templates, setTemplates] = useState<TemplateRow[] | null>(null);
+  const [runs, setRuns] = useState<RunRow[] | null>(null);
+  const [showNewTemplate, setShowNewTemplate] = useState(false);
   const [employeesText, setEmployeesText] = useState("");
-  const [employees, setEmployees] = useState<string[]>([]);
-  const [templateId, setTemplateId] = useState<bigint | null>(null);
-  const [runId, setRunId] = useState<bigint | null>(null);
-  const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const [newTplSteps, setNewTplSteps] = useState<TxStep[]>([]);
+
+  // Execute-run modal state
+  const [executingRun, setExecutingRun] = useState<RunRow | null>(null);
+  const [executingEmployees, setExecutingEmployees] = useState<string[]>([]);
+  const [salaries, setSalaries] = useState<Record<string, string>>({});
 
   const configured = Boolean(DEPLOYMENT.contracts.payroll);
 
+  const reload = useCallback(() => {
+    if (!wallet || !configured) return;
+    (async () => {
+      try {
+        const tCount = await wallet.payrollTemplateCount();
+        const tpls: TemplateRow[] = [];
+        for (let i = 1n; i <= tCount; i++) {
+          const t = await wallet.payrollTemplate(i);
+          if (t.employer === wallet.address) tpls.push({ id: i, employees: t.employees, active: t.active });
+        }
+        setTemplates(tpls);
+
+        const rCount = await wallet.payrollRunCount();
+        const rws: RunRow[] = [];
+        for (let i = 1n; i <= rCount; i++) {
+          const r = await wallet.payrollRun(i);
+          if (tpls.some((t) => t.id === r.templateId)) rws.push({ id: i, templateId: r.templateId, status: r.status });
+        }
+        setRuns(rws);
+      } catch (e) {
+        setError(errMsg(e));
+      }
+    })();
+  }, [wallet, configured, setError]);
+
+  useEffect(reload, [reload]);
+
   if (!wallet) {
     return (
-      <Shell>
-        <ErrorBox message={error} />
-        <ConnectPrompt onConnect={connect} busy={connecting} />
-      </Shell>
+      <AppShell>
+        <PageHeader title="Payroll" showBack={false} />
+        <div className="flex flex-col gap-5 px-4 pb-6 md:mx-auto md:max-w-2xl md:px-8">
+          {error && <p className="rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</p>}
+          <GlassCard className="flex flex-col items-center gap-4 py-12 text-center">
+            <p className="text-sm text-text-secondary">Connect Freighter to run confidential payroll.</p>
+            <Button isLoading={connecting} onClick={connect}>
+              Connect Freighter
+            </Button>
+          </GlassCard>
+        </div>
+      </AppShell>
     );
   }
 
   if (!configured) {
     return (
-      <Shell>
-        <NotDeployed name="PayrollVault" env="NEXT_PUBLIC_PAYROLL_ID" />
-      </Shell>
+      <AppShell>
+        <PageHeader title="Payroll" showBack={false} />
+        <div className="px-4 md:mx-auto md:max-w-2xl md:px-8">
+          <GlassCard padding="md">
+            <SectionLabel>Not deployed</SectionLabel>
+            <p className="mt-3 text-sm text-text-secondary">
+              PayrollVault hasn&apos;t been deployed to this environment yet. Run{" "}
+              <span className="font-mono text-accent">pnpm deploy:contracts</span> and rebuild the app.
+            </p>
+          </GlassCard>
+        </div>
+      </AppShell>
     );
   }
 
-  const parseEmployees = () =>
-    employeesText
+  async function createTemplate() {
+    const employees = employeesText
       .split(/[\n,]/)
       .map((s) => s.trim())
       .filter(Boolean);
-
-  const createTemplate = () =>
-    run(
+    if (employees.length === 0) {
+      setError("Enter at least one employee address");
+      return;
+    }
+    setNewTplSteps([{ id: "template", label: "Create payroll template", status: "active" }]);
+    await run(
       "template",
       async () => {
-        const emp = parseEmployees();
-        if (emp.length === 0) throw new Error("enter at least one employee address");
-        const id = await wallet.createTemplate(emp);
-        setTemplateId(id);
-        setEmployees(emp);
-        setAmounts(Object.fromEntries(emp.map((a) => [a, ""])));
-        setRunId(null);
+        await wallet!.createTemplate(employees);
+        setNewTplSteps((s) => s.map((x) => ({ ...x, status: "done" })));
       },
       { refresh: false },
     );
+    reload();
+    setTimeout(() => {
+      setShowNewTemplate(false);
+      setEmployeesText("");
+      setNewTplSteps([]);
+    }, 900);
+  }
 
-  const loadTemplate = (idStr: string) =>
-    run(
-      "load",
-      async () => {
-        const id = BigInt(idStr);
-        const t = await wallet.payrollTemplate(id);
-        setTemplateId(id);
-        setEmployees(t.employees);
-        setAmounts(Object.fromEntries(t.employees.map((a) => [a, ""])));
-      },
-      { refresh: false },
-    );
-
-  const openRun = () =>
-    run(
+  async function openRun(templateId: bigint) {
+    await run(
       "openrun",
       async () => {
-        if (templateId === null) throw new Error("create or load a template first");
-        setRunId(await wallet.createRun(templateId));
+        await wallet!.createRun(templateId);
       },
       { refresh: false },
     );
+    reload();
+  }
 
-  const fund = () =>
-    run("fund", async () => {
-      if (runId === null) throw new Error("open a run first");
-      await wallet.fundRun(runId);
+  async function fundRun(runId: bigint) {
+    await run(`fund-${runId}`, async () => {
+      await wallet!.fundRun(runId);
     }, { refresh: false });
+    reload();
+  }
 
-  const execute = () =>
-    run("exec", async (sp) => {
-      if (runId === null) throw new Error("open a run first");
-      const payments = employees.map((employee) => ({
-        employee,
-        amount: BigInt(amounts[employee] || "0"),
-      }));
-      if (payments.some((p) => p.amount <= 0n)) throw new Error("every salary must be > 0");
-      await wallet.executeRun(runId, payments, sp);
+  function beginExecute(r: RunRow, employees: string[]) {
+    setExecutingRun(r);
+    setExecutingEmployees(employees);
+    setSalaries(Object.fromEntries(employees.map((a) => [a, ""])));
+  }
+
+  async function confirmExecute() {
+    if (!executingRun) return;
+    const payments = executingEmployees.map((employee) => ({ employee, amount: BigInt(salaries[employee] || "0") }));
+    if (payments.some((p) => p.amount <= 0n)) {
+      setError("Every salary must be greater than 0");
+      return;
+    }
+    await run("execute", async (sp) => {
+      await wallet!.executeRun(executingRun.id, payments, sp);
+      setExecutingRun(null);
     });
+    reload();
+  }
 
-  const cancel = () =>
-    run("cancel", async () => {
-      if (runId === null) throw new Error("no run to cancel");
-      await wallet.cancelRun(runId);
+  async function cancelRun(runId: bigint) {
+    await run(`cancel-${runId}`, async () => {
+      await wallet!.cancelRun(runId);
     }, { refresh: false });
+    reload();
+  }
+
+  const receiving = view?.receiving ?? 0n;
+  const hasClaim = receiving > 0n;
 
   return (
-    <Shell>
-      <ErrorBox message={error} />
+    <AppShell>
+      <PageHeader
+        title="Payroll"
+        showBack={false}
+        right={
+          topTab === "employer" && employerTab === "templates" ? (
+            <Button size="sm" variant="secondary" onClick={() => setShowNewTemplate(true)}>
+              <Plus className="h-3.5 w-3.5" /> New
+            </Button>
+          ) : null
+        }
+      />
 
-      <GlassCard>
-        <SectionTitle
-          title="1 · Template"
-          hint="Fix the set of employees. Salaries are entered later and never stored on-chain."
-        />
-        <Field label="Employee addresses (one per line)">
-          <textarea
-            className={`${inputCls} h-28 font-mono text-xs`}
-            value={employeesText}
-            onChange={(e) => setEmployeesText(e.target.value)}
-            placeholder={"G…\nG…"}
-          />
-        </Field>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <ProofButton onClick={createTemplate} busy={busy === "template"}>
-            Create template
-          </ProofButton>
-          <LoadById label="load existing template #" onLoad={loadTemplate} busy={busy === "load"} />
-          {templateId !== null && <Pill tone="amber">template #{templateId.toString()}</Pill>}
+      <div className="flex flex-col gap-5 px-4 pb-24 md:mx-auto md:max-w-2xl md:px-8 md:pb-8">
+        {error && <p className="rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</p>}
+
+        <div className="flex gap-2 rounded-2xl border border-border bg-card p-1">
+          {(["employer", "employee"] as TopTab[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTopTab(t)}
+              className={cn(
+                "flex-1 rounded-xl py-2.5 text-sm font-medium capitalize transition-all duration-200",
+                topTab === t ? "bg-accent text-black" : "text-text-muted hover:text-text-secondary",
+              )}
+            >
+              {t}
+            </button>
+          ))}
         </div>
-      </GlassCard>
 
-      {templateId !== null && (
-        <GlassCard>
-          <SectionTitle title="2 · Run" hint="Open a run, mark it funded, then execute the confidential payouts." />
-          <div className="flex flex-wrap items-center gap-2">
-            <ProofButton onClick={openRun} busy={busy === "openrun"} variant="ghost">
-              Open run
-            </ProofButton>
-            <ProofButton onClick={fund} busy={busy === "fund"} variant="ghost" disabled={runId === null}>
-              Fund run
-            </ProofButton>
-            <ProofButton onClick={cancel} busy={busy === "cancel"} variant="danger" disabled={runId === null}>
-              Cancel
-            </ProofButton>
-            {runId !== null && <Pill tone="amber">run #{runId.toString()}</Pill>}
+        {topTab === "employer" ? (
+          <>
+            <div className="flex gap-2">
+              {(["templates", "runs"] as EmployerTab[]).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setEmployerTab(t)}
+                  className={cn(
+                    "rounded-full px-3.5 py-1.5 text-xs font-medium capitalize transition-colors",
+                    employerTab === t ? "bg-accent-bg text-accent" : "text-text-muted hover:text-text-secondary",
+                  )}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+
+            {employerTab === "templates" &&
+              (templates === null ? (
+                <p className="py-12 text-center text-sm text-text-muted">Loading…</p>
+              ) : templates.length === 0 ? (
+                <EmptyState icon={Briefcase} label="No templates yet">
+                  <Button onClick={() => setShowNewTemplate(true)}>
+                    <Plus className="h-4 w-4" /> Create Template
+                  </Button>
+                </EmptyState>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {templates.map((t) => (
+                    <GlassCard key={t.id.toString()} padding="md">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-bg">
+                          <Users className="h-4 w-4 text-accent" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-text-primary">Template #{t.id.toString()}</p>
+                          <p className="mt-0.5 text-xs text-text-muted">
+                            {t.employees.length} employee{t.employees.length !== 1 ? "s" : ""}
+                          </p>
+                        </div>
+                        <Button size="sm" variant="secondary" isLoading={busy === "openrun"} onClick={() => openRun(t.id)}>
+                          Create Run
+                        </Button>
+                      </div>
+                    </GlassCard>
+                  ))}
+                </div>
+              ))}
+
+            {employerTab === "runs" &&
+              (runs === null ? (
+                <p className="py-12 text-center text-sm text-text-muted">Loading…</p>
+              ) : runs.length === 0 ? (
+                <EmptyState icon={Briefcase} label="No runs yet" />
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {runs.map((r) => {
+                    const tpl = templates?.find((t) => t.id === r.templateId);
+                    const meta = STATUS_META[r.status];
+                    return (
+                      <GlassCard key={r.id.toString()} padding="md">
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-text-primary">Run #{r.id.toString()}</span>
+                              <Pill tone={meta.tone}>{meta.label}</Pill>
+                            </div>
+                            <p className="mt-0.5 text-xs text-text-muted">Template #{r.templateId.toString()}</p>
+                          </div>
+                          <EncryptedBadge size="sm" />
+                        </div>
+                        {tpl && r.status === RunStatus.Scheduled && (
+                          <div className="mt-3 flex gap-2">
+                            <Button size="sm" fullWidth isLoading={busy === `fund-${r.id}`} onClick={() => fundRun(r.id)}>
+                              Fund
+                            </Button>
+                            <Button size="sm" variant="danger" isLoading={busy === `cancel-${r.id}`} onClick={() => cancelRun(r.id)}>
+                              Cancel
+                            </Button>
+                          </div>
+                        )}
+                        {tpl && r.status === RunStatus.Funded && (
+                          <div className="mt-3">
+                            <Button size="sm" fullWidth onClick={() => beginExecute(r, tpl.employees)}>
+                              Execute Payroll
+                            </Button>
+                          </div>
+                        )}
+                      </GlassCard>
+                    );
+                  })}
+                </div>
+              ))}
+          </>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {hasClaim ? (
+              <GlassCard padding="md" glow>
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-text-primary">Payroll Pending</p>
+                      <p className="mt-0.5 text-xs text-text-muted">Ready to claim</p>
+                    </div>
+                    <EncryptedBadge size="sm" />
+                  </div>
+                  <Button fullWidth isLoading={busy === "claim"} onClick={() => run("claim", () => wallet!.claimSalary())}>
+                    Claim Payroll
+                  </Button>
+                </div>
+              </GlassCard>
+            ) : (
+              <EmptyState icon={Briefcase} label="No pending claims" />
+            )}
           </div>
-        </GlassCard>
-      )}
+        )}
+      </div>
 
-      {templateId !== null && (
-        <GlassCard>
-          <SectionTitle
-            title="3 · Salaries"
-            hint="Enter each salary, then execute. One confidential transfer per employee is proven in-browser and submitted atomically."
-          />
-          <div className="space-y-2">
-            {employees.map((a) => (
-              <div key={a} className="flex items-center gap-2">
-                <span className="min-w-0 flex-1 truncate font-mono text-xs text-neutral-400">{a}</span>
-                <input
-                  className={`${inputCls} w-32`}
-                  value={amounts[a] ?? ""}
-                  onChange={(e) => setAmounts((m) => ({ ...m, [a]: e.target.value }))}
-                  placeholder="amount"
-                />
-              </div>
-            ))}
-          </div>
-          <div className="mt-3">
-            <ProofButton onClick={execute} busy={busy === "exec"} phase={phase} disabled={runId === null}>
-              Execute payroll
-            </ProofButton>
-          </div>
-        </GlassCard>
-      )}
+      {/* New template bottom sheet */}
+      <Modal open={showNewTemplate} onClose={() => !(busy === "template") && setShowNewTemplate(false)} title="New Template">
+        <Textarea
+          label="Employee addresses (one per line)"
+          value={employeesText}
+          onChange={(e) => setEmployeesText(e.target.value)}
+          className="h-28 font-mono text-xs"
+          placeholder={"G…\nG…"}
+        />
+        {newTplSteps.length > 0 && <TxStatus steps={newTplSteps} />}
+        <Button fullWidth size="lg" isLoading={busy === "template"} onClick={createTemplate}>
+          Create Template
+        </Button>
+      </Modal>
 
-      <GlassCard>
-        <SectionTitle title="Employee · Claim" hint="Fold a received salary into your spendable balance." />
-        <ProofButton onClick={() => run("claim", () => wallet.claimSalary())} busy={busy === "claim"} variant="ghost">
-          Claim salary
-        </ProofButton>
-      </GlassCard>
-    </Shell>
-  );
-}
-
-function LoadById({ label, onLoad, busy }: { label: string; onLoad: (id: string) => void; busy: boolean }) {
-  const [id, setId] = useState("");
-  return (
-    <div className="flex items-center gap-1">
-      <span className="text-xs text-neutral-500">{label}</span>
-      <input className={`${inputCls} w-16`} value={id} onChange={(e) => setId(e.target.value)} />
-      <button
-        onClick={() => onLoad(id)}
-        disabled={busy || !id}
-        className="rounded-lg border border-white/15 px-2 py-1 text-xs text-neutral-200 hover:border-white/30 disabled:opacity-50"
-      >
-        {busy ? "…" : "load"}
-      </button>
-    </div>
-  );
-}
-
-function NotDeployed({ name, env }: { name: string; env: string }) {
-  return (
-    <GlassCard>
-      <SectionTitle title={`${name} not configured`} />
-      <p className="text-sm text-neutral-400">
-        Deploy the {name} contract (<span className="font-mono text-xs">pnpm deploy:contracts</span>) and set{" "}
-        <span className="font-mono text-xs text-amber-300">{env}</span> before building the app.
-      </p>
-    </GlassCard>
-  );
-}
-
-function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="mx-auto max-w-2xl space-y-5 px-5 py-10">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Payroll</h1>
-        <p className="mt-1 text-sm text-neutral-400">
-          Confidential salary distribution — no employee sees another&apos;s amount; the employer, as
-          auditor, sees all.
+      {/* Execute run modal */}
+      <Modal open={executingRun !== null} onClose={() => setExecutingRun(null)} title={`Execute Run #${executingRun?.id.toString() ?? ""}`}>
+        <p className="text-xs leading-relaxed text-text-muted">
+          Enter each salary. One confidential transfer per employee is proven in your browser and
+          submitted atomically.
         </p>
-      </header>
+        <div className="flex flex-col gap-3">
+          {executingEmployees.map((a) => (
+            <div key={a} className="flex flex-col gap-2 rounded-xl border border-border p-3">
+              <AddressDisplay address={a} chars={8} showCopy={false} />
+              <NumericKeypad
+                value={salaries[a] ?? ""}
+                onChange={(v) => setSalaries((s) => ({ ...s, [a]: v }))}
+                unit="XLM"
+              />
+            </div>
+          ))}
+        </div>
+        <Button fullWidth size="lg" isLoading={busy === "execute"} onClick={confirmExecute}>
+          Execute Payroll
+        </Button>
+      </Modal>
+
+      <ProofLoadingOverlay open={busy === "execute" && phase === "proving"} estSeconds={12 * Math.max(executingEmployees.length, 1)} fullScreen />
+    </AppShell>
+  );
+}
+
+function EmptyState({ icon: Icon, label, children }: { icon: typeof Briefcase; label: string; children?: React.ReactNode }) {
+  return (
+    <div className="flex flex-col items-center gap-4 py-12">
+      <div className="glass-card flex h-14 w-14 items-center justify-center">
+        <Icon className="h-6 w-6 text-text-muted" />
+      </div>
+      <p className="text-sm text-text-muted">{label}</p>
       {children}
-    </main>
+    </div>
   );
 }

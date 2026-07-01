@@ -33,7 +33,10 @@ import discloseSenderVk from "@lucent/disclosure/artifacts/disclose_sender.vk.js
 import { DEPLOYMENT } from "@/lib/deployment";
 import { ensureBrowserBackend } from "@/lib/bb-loader";
 import { errMsg } from "@/lib/err";
-import { GlassCard, ProofButton, SectionTitle, inputCls } from "@/lib/ui";
+import { GlassCard } from "@/components/ui/GlassCard";
+import { Button } from "@/components/ui/Button";
+import { Textarea } from "@/components/ui/Textarea";
+import { SectionLabel } from "@/components/ui/SectionLabel";
 import { CopyButton } from "../copy-button";
 
 const RR_KEY = "lucent:disclosure:rR";
@@ -120,48 +123,57 @@ export function VerifyPanel() {
   }, [keys, request, bundleJson]);
 
   return (
-    <div className="space-y-5">
-      <GlassCard>
-        <SectionTitle title="1 · Your request" hint="Hand this to the holder; they disclose against it on the Prove tab. The nonce is one-time." />
-        <div className="flex items-center gap-2">
-          <ProofButton onClick={mintRequest} disabled={!keys} variant="ghost">
+    <div className="flex flex-col gap-5">
+      <GlassCard padding="md">
+        <SectionLabel>Your Request</SectionLabel>
+        <p className="mt-3 text-xs text-text-muted">
+          Hand this to the holder; they disclose against it on the Prove tab. The nonce is one-time.
+        </p>
+        <div className="mt-3 flex items-center gap-2">
+          <Button variant="secondary" disabled={!keys} onClick={mintRequest}>
             {request ? "New request (fresh nonce)" : "Create request"}
-          </ProofButton>
+          </Button>
           {request && <CopyButton label="Copy request" payload={() => JSON.stringify(request, null, 2)} />}
         </div>
         {request && (
-          <textarea readOnly className={`${inputCls} mt-3 h-24 font-mono text-xs`} value={JSON.stringify(request, null, 2)} />
+          <Textarea readOnly className="mt-3 h-24 font-mono text-xs" value={JSON.stringify(request, null, 2)} />
         )}
       </GlassCard>
 
-      <GlassCard>
-        <SectionTitle title="2 · Verify the bundle" hint="Paste the bundle the holder sent back. Everything is re-read from the chain — never trusted from the bundle." />
-        <textarea
-          className={`${inputCls} h-28 font-mono text-xs`}
+      <GlassCard padding="md">
+        <SectionLabel>Verify the Bundle</SectionLabel>
+        <p className="mt-3 text-xs text-text-muted">
+          Paste the bundle the holder sent back. Everything is re-read from the chain — never trusted
+          from the bundle.
+        </p>
+        <Textarea
+          className="mt-3 h-28 font-mono text-xs"
           placeholder='{"circuitId":"disclose_recipient","refE":{…},"proof":"0x…","rDisc":{…},"vTildeDisc":"0x…"}'
           value={bundleJson}
           onChange={(e) => setBundleJson(e.target.value)}
         />
         <div className="mt-2">
-          <ProofButton onClick={verify} busy={busy} disabled={!request || !bundleJson.trim()}>
+          <Button isLoading={busy} disabled={!request || !bundleJson.trim()} onClick={verify}>
             Verify against chain
-          </ProofButton>
+          </Button>
         </div>
-        {!request && <p className="mt-2 text-xs text-amber-400">Create a request first.</p>}
+        {!request && <p className="mt-2 text-xs text-warning">Create a request first.</p>}
       </GlassCard>
 
       {error && (
-        <GlassCard className="border-red-500/40">
-          <h3 className="mb-1 font-medium text-red-300">Rejected at: {error.stage}</h3>
-          <p className="text-sm text-red-300/90">{error.message}</p>
+        <GlassCard padding="md" className="border-error/40">
+          <h3 className="mb-1 font-medium text-error">Rejected at: {error.stage}</h3>
+          <p className="text-sm text-error/90">{error.message}</p>
         </GlassCard>
       )}
 
       {result && (
-        <GlassCard className="border-emerald-500/40">
-          <h3 className="mb-2 font-medium text-emerald-300">Disclosure verified ✓</h3>
-          <div className="mb-3 text-3xl text-neutral-100">{result.amount.toString()} stroops</div>
-          <p className="text-sm text-neutral-300">
+        <GlassCard padding="md" className="border-success/40">
+          <h3 className="mb-2 font-medium text-success">Disclosure verified ✓</h3>
+          <div className="mb-3 font-display text-3xl font-bold tabular-nums text-text-primary">
+            {result.amount.toString()} stroops
+          </div>
+          <p className="text-sm text-text-secondary">
             The on-chain transfer <span className="font-mono text-xs">{result.event.txHash.slice(0, 10)}…</span> (ledger{" "}
             {result.event.ledger}){" "}
             {result.role === "recipient" ? "paid" : "was sent by"}{" "}

@@ -21,9 +21,10 @@ contracts/target/
 .env.*
 !.env.example
 deployments/*.json
-!deployments/testnet.json
 .soroban/
 *.log
 
 # OS
 .DS_Store
+
+shade-ref

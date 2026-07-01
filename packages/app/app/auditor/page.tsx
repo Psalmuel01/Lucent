@@ -29,6 +29,13 @@ import {
   fromHex,
   type ConfidentialEvent,
 } from "@lucent/sdk";
+import { AppShell } from "@/components/layout/AppShell";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { GlassCard } from "@/components/ui/GlassCard";
+import { Button } from "@/components/ui/Button";
+import { SectionLabel } from "@/components/ui/SectionLabel";
+import { Pill, type PillTone } from "@/components/ui/Pill";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { DEPLOYMENT } from "@/lib/deployment";
 import { errMsg } from "@/lib/err";
 import { CopyButton } from "../copy-button";
@@ -190,66 +197,68 @@ export default function AuditorPage() {
   }, [load]);
 
   return (
-    <main className="mx-auto max-w-3xl px-5 py-10">
-      <header className="mb-8">
-        <h1 className="text-2xl font-semibold tracking-tight">Auditor</h1>
-        <p className="mt-2 text-sm leading-relaxed text-neutral-400">
-          You are the designated auditor for this deployment: every account registers under your
-          auditor id. Amounts that everyone else sees as ciphertext, you read in cleartext: each
-          transfer and withdrawal carries ECDH ciphertexts addressed to your key. No wallet, no 
-          proofs, and no account cooperation required.
-        </p>
-      </header>
+    <AppShell>
+      <PageHeader title="Auditor" showBack={false} />
 
-      <div className="space-y-6">
-        <section className="rounded border border-amber-900/70 bg-amber-950/20 p-4">
-          <h3 className="mb-1 font-medium text-amber-300">Your auditor key (id {DEPLOYMENT.auditorId})</h3>
-          <p className="mb-3 text-xs text-neutral-400">
-            Demo-only: this secret ships with the app so anyone can take the auditor role.
-            In a real deployment it lives in the auditor&apos;s vault and only the public key{" "}
-            <code>K_aud = k·H</code> is registered on-chain.
+      <div className="flex flex-col gap-5 px-4 pb-8 md:mx-auto md:max-w-2xl md:px-8">
+        <p className="text-sm leading-relaxed text-text-secondary">
+          You are the designated auditor for this deployment: every account registers under your
+          auditor id. Amounts that everyone else sees as a commitment, you read in cleartext — each
+          transfer and withdrawal carries ciphertexts addressed to your key. No wallet, no proofs, and
+          no account cooperation required.
+        </p>
+
+        <GlassCard padding="md" className="border-accent/25">
+          <SectionLabel>Auditor Console</SectionLabel>
+          <h3 className="mb-1 mt-3 text-sm font-semibold text-accent">Your auditor key (id {DEPLOYMENT.auditorId})</h3>
+          <p className="mb-3 text-xs text-text-muted">
+            Demo-only: this secret ships with the app so anyone can take the auditor role. In a real
+            deployment it lives in the auditor&apos;s vault and only the public key{" "}
+            <code className="rounded bg-white/[0.07] px-1 py-0.5 font-mono text-[0.85em] text-accent/90">K_aud = k·H</code> is
+            registered on-chain.
           </p>
-          <dl className="space-y-1 break-all font-mono text-xs text-neutral-300">
+          <dl className="space-y-1 break-all font-mono text-xs text-text-secondary">
             <div>
-              <dt className="inline text-neutral-500">secret k: </dt>
+              <dt className="inline text-text-muted">secret k: </dt>
               <dd className="inline">{DEPLOYMENT.auditorSecretHex}</dd>{" "}
               <CopyButton label="Copy" payload={() => DEPLOYMENT.auditorSecretHex} />
             </div>
             <div>
-              <dt className="inline text-neutral-500">K_aud.x: </dt>
+              <dt className="inline text-text-muted">K_aud.x: </dt>
               <dd className="inline">{toHex32(kAud.x)}</dd>
             </div>
             <div>
-              <dt className="inline text-neutral-500">K_aud.y: </dt>
+              <dt className="inline text-text-muted">K_aud.y: </dt>
               <dd className="inline">{toHex32(kAud.y)}</dd>
             </div>
           </dl>
-        </section>
+        </GlassCard>
 
-        <section className="rounded border border-neutral-800 p-4">
+        <GlassCard padding="md">
           <div className="mb-1 flex items-center justify-between">
-            <h3 className="font-medium">Accounts as you see them</h3>
-            <button
-              onClick={load}
-              disabled={busy}
-              className="rounded bg-neutral-800 px-3 py-1.5 text-sm font-medium hover:bg-neutral-700 disabled:opacity-50"
-            >
-              {busy ? "Decrypting…" : "Reload + decrypt"}
-            </button>
+            <h3 className="font-semibold text-text-primary">Accounts as you see them</h3>
+            <Button size="sm" variant="secondary" isLoading={busy} onClick={load}>
+              Reload
+            </Button>
           </div>
-          <p className="mb-3 text-xs text-neutral-400">
-            Reconstructed from sender-channel balance checkpoints and decrypted inbound credits
-            (DESIGN.md §8.1).{" "}
+          <p className="mb-3 text-xs text-text-muted">
+            Reconstructed from sender-channel balance checkpoints and decrypted inbound credits.{" "}
             {hasIndexer
               ? "Backed by the Goldsky indexer, so the full deployment history is decrypted."
               : "Only events inside the RPC's ~7-day retention window are available — accounts with older history may be incomplete."}
           </p>
           {accounts.length === 0 && !busy && (
-            <p className="text-sm text-neutral-500">No accounts in the retention window.</p>
+            <p className="text-sm text-text-muted">No accounts in the retention window.</p>
+          )}
+          {busy && accounts.length === 0 && (
+            <div className="flex flex-col gap-2">
+              <Skeleton className="h-6 w-full" />
+              <Skeleton className="h-6 w-full" />
+            </div>
           )}
           {accounts.length > 0 && (
             <table className="w-full text-left text-xs">
-              <thead className="text-neutral-500">
+              <thead className="text-text-muted">
                 <tr>
                   <th className="pb-2 font-normal">account</th>
                   <th className="pb-2 font-normal">spendable</th>
@@ -257,49 +266,44 @@ export default function AuditorPage() {
                   <th className="pb-2 font-normal">last seen</th>
                 </tr>
               </thead>
-              <tbody className="text-neutral-300">
+              <tbody className="text-text-secondary">
                 {accounts.map((a) => (
-                  <tr key={a.address} className="border-t border-neutral-900">
+                  <tr key={a.address} className="border-t border-border">
                     <td className="py-1.5 font-mono">{shortAddr(a.address)}</td>
-                    <td className="py-1.5">{a.spendable === null ? "?" : a.spendable.toString()}</td>
-                    <td className="py-1.5">{a.receiving.toString()}</td>
-                    <td className="py-1.5 text-neutral-500">ledger {a.lastLedger}</td>
+                    <td className="py-1.5 font-mono tabular-nums text-text-primary">{a.spendable === null ? "?" : a.spendable.toString()}</td>
+                    <td className="py-1.5 font-mono tabular-nums text-text-primary">{a.receiving.toString()}</td>
+                    <td className="py-1.5 text-text-muted">ledger {a.lastLedger}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
-        </section>
+        </GlassCard>
 
-        <section className="rounded border border-neutral-800 p-4">
-          <h3 className="mb-1 font-medium">Decrypted activity</h3>
-          <p className="mb-3 text-xs text-neutral-400">
+        <GlassCard padding="md">
+          <h3 className="mb-1 font-semibold text-text-primary">Decrypted activity</h3>
+          <p className="mb-3 text-xs text-text-muted">
             Every token-contract event {hasIndexer ? "since deployment" : "in the retention window"},
-            newest first. Amounts the wallet page shows as &ldquo;confidential&rdquo; appear here in
-            cleartext — decrypted with your key alone.
+            newest first. Amounts every other screen shows encrypted appear here in cleartext —
+            decrypted with your key alone.
           </p>
-          {error && (
-            <div className="mb-3 rounded border border-red-800 bg-red-950/40 p-2 text-xs text-red-300">{error}</div>
-          )}
-          {!rows && busy && <p className="text-sm text-neutral-500">Syncing events…</p>}
-          {rows && rows.length === 0 && (
-            <p className="text-sm text-neutral-500">No activity in the retention window.</p>
-          )}
+          {error && <p className="mb-3 rounded-xl border border-error/30 bg-error/10 p-3 text-xs text-error">{error}</p>}
+          {!rows && busy && <p className="text-sm text-text-muted">Syncing events…</p>}
+          {rows && rows.length === 0 && <p className="text-sm text-text-muted">No activity in the retention window.</p>}
           {rows && (
-            <ul className="space-y-2">
+            <ul className="flex flex-col gap-2">
               {rows.map((row) => (
                 <AuditRowView key={row.ev.cursor} row={row} />
               ))}
             </ul>
           )}
-        </section>
-      </div>
+        </GlassCard>
 
-      <footer className="mt-10 font-mono text-xs text-neutral-600">
-        auditor contract {shortAddr(DEPLOYMENT.contracts.auditor)} · token{" "}
-        {shortAddr(DEPLOYMENT.contracts.token)} · decryption per DESIGN.md §8
-      </footer>
-    </main>
+        <footer className="font-mono text-xs text-text-muted">
+          auditor contract {shortAddr(DEPLOYMENT.contracts.auditor)} · token {shortAddr(DEPLOYMENT.contracts.token)}
+        </footer>
+      </div>
+    </AppShell>
   );
 }
 
@@ -310,43 +314,44 @@ function AuditRowView({ row }: { row: AuditRow }) {
       ? shortAddr(ev.account)
       : `${shortAddr(ev.from)} → ${shortAddr(ev.to)}`;
   return (
-    <li className="rounded border border-neutral-900 bg-neutral-500/10 p-3">
+    <li className="rounded-xl border border-border bg-white/[0.02] p-3">
       <div className="flex flex-wrap items-center gap-2">
-        <span className={`rounded px-2 py-0.5 text-xs font-medium ${badgeCls(ev.type)}`}>{ev.type}</span>
-        <span className="font-mono text-xs text-neutral-400">{parties}</span>
+        <Pill tone={badgeTone(ev.type)}>{ev.type}</Pill>
+        <span className="font-mono text-xs text-text-muted">{parties}</span>
         <span className="flex-1" />
         {row.amount !== null && (
-          <span className="text-sm font-medium text-amber-300">{row.amount.toString()}</span>
+          <span className="font-mono text-sm font-medium tabular-nums text-accent">{row.amount.toString()}</span>
         )}
-        {!row.channelsAgree && (
-          <span className="rounded bg-red-900 px-2 py-0.5 text-xs text-red-300">undecryptable</span>
-        )}
+        {!row.channelsAgree && <Pill tone="red">undecryptable</Pill>}
       </div>
-      <div className="mt-1.5 text-xs text-neutral-400">
+      <div className="mt-1.5 text-xs text-text-muted">
         {row.text}
         {row.senderBalance !== null && (
-          <> · sender&apos;s balance now <span className="text-neutral-300">{row.senderBalance.toString()}</span></>
+          <>
+            {" "}
+            · sender&apos;s balance now <span className="text-text-secondary">{row.senderBalance.toString()}</span>
+          </>
         )}
       </div>
-      <div className="mt-1 text-xs text-neutral-600">
+      <div className="mt-1 text-xs text-text-muted/70">
         ledger {ev.ledger} · tx <span className="font-mono">{ev.txHash.slice(0, 10)}…</span>
       </div>
     </li>
   );
 }
 
-function badgeCls(type: ConfidentialEvent["type"]): string {
+function badgeTone(type: ConfidentialEvent["type"]): PillTone {
   switch (type) {
     case "transfer":
-      return "bg-amber-900 text-amber-300";
+      return "amber";
     case "deposit":
-      return "bg-sky-900 text-sky-300";
+      return "sky";
     case "withdraw":
-      return "bg-orange-900 text-orange-300";
+      return "amber";
     case "register":
-      return "bg-purple-900 text-purple-300";
+      return "violet";
     case "merge":
-      return "bg-neutral-800 text-neutral-300";
+      return "neutral";
   }
 }
 

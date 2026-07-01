@@ -12,7 +12,10 @@ import type { ConfidentialEvent, TransferEvent, DisclosureRequest } from "@lucen
 import type { ConfidentialWallet } from "@/lib/wallet";
 import { DEPLOYMENT } from "@/lib/deployment";
 import { errMsg } from "@/lib/err";
-import { GlassCard, Pill, ProofButton, Spinner, inputCls } from "@/lib/ui";
+import { GlassCard } from "@/components/ui/GlassCard";
+import { Button } from "@/components/ui/Button";
+import { Textarea } from "@/components/ui/Textarea";
+import { Pill } from "@/components/ui/Pill";
 import { CopyButton } from "../copy-button";
 
 export function EventsPanel({ wallet }: { wallet: ConfidentialWallet }) {
@@ -37,24 +40,22 @@ export function EventsPanel({ wallet }: { wallet: ConfidentialWallet }) {
   }, [load]);
 
   return (
-    <GlassCard>
+    <GlassCard padding="md">
       <div className="mb-1 flex items-center justify-between">
-        <h3 className="font-semibold">Your transfers</h3>
-        <button onClick={load} disabled={busy} className="text-xs text-neutral-400 underline hover:text-neutral-200 disabled:opacity-50">
-          {busy ? "loading…" : "reload"}
-        </button>
+        <h3 className="font-semibold text-text-primary">Your transfers</h3>
+        <Button size="sm" variant="ghost" isLoading={busy} onClick={load}>
+          Reload
+        </Button>
       </div>
-      <p className="mb-3 text-xs text-neutral-400">
+      <p className="mb-3 text-xs text-text-muted">
         Events involving your account ({DEPLOYMENT.indexerUrl ? "full history via indexer" : "~7-day RPC retention"}).
         Disclose a transfer to prove its amount to a third party — as its receiver or its sender.
       </p>
-      {error && <div className="mb-3 rounded-lg border border-red-500/40 bg-red-950/40 p-2 text-xs text-red-300">{error}</div>}
-      {events && events.length === 0 && <p className="text-sm text-neutral-500">No activity in the retention window.</p>}
-      {!events && busy && (
-        <p className="flex items-center gap-2 text-sm text-neutral-500"><Spinner /> Loading events…</p>
-      )}
+      {error && <p className="mb-3 rounded-xl border border-error/30 bg-error/10 p-2 text-xs text-error">{error}</p>}
+      {events && events.length === 0 && <p className="text-sm text-text-muted">No activity in the retention window.</p>}
+      {!events && busy && <p className="text-sm text-text-muted">Loading events…</p>}
       {events && (
-        <ul className="space-y-2">
+        <ul className="flex flex-col gap-2">
           {events.map((ev) => (
             <EventRow key={ev.cursor} ev={ev} wallet={wallet} />
           ))}
@@ -72,22 +73,22 @@ function EventRow({ ev, wallet }: { ev: ConfidentialEvent; wallet: ConfidentialW
   const canDisclose = direction === "received" || (direction === "sent" && wallet.canDiscloseSent(ev as TransferEvent));
 
   return (
-    <li className="rounded-xl border border-white/10 bg-black/30 p-3">
+    <li className="rounded-xl border border-border bg-white/[0.02] p-3">
       <div className="flex flex-wrap items-center gap-2">
         <Pill tone={direction === "received" ? "green" : direction === "sent" ? "amber" : "neutral"}>
           {direction ?? ev.type}
         </Pill>
-        <span className="text-xs text-neutral-500">ledger {ev.ledger}</span>
-        <span className="font-mono text-xs text-neutral-500">tx {ev.txHash.slice(0, 10)}…</span>
+        <span className="text-xs text-text-muted">ledger {ev.ledger}</span>
+        <span className="font-mono text-xs text-text-muted">tx {ev.txHash.slice(0, 10)}…</span>
         <span className="flex-1" />
         {direction && canDisclose && (
-          <button onClick={() => setOpen((v) => !v)} className="rounded-lg border border-white/15 px-2 py-1 text-xs text-neutral-200 hover:border-white/30">
+          <Button size="sm" variant="ghost" onClick={() => setOpen((v) => !v)}>
             {open ? "Close" : "Disclose…"}
-          </button>
+          </Button>
         )}
-        {direction === "sent" && !canDisclose && <span className="text-xs text-neutral-600">not disclosable</span>}
+        {direction === "sent" && !canDisclose && <span className="text-xs text-text-muted">not disclosable</span>}
       </div>
-      <div className="mt-1.5 text-xs text-neutral-400">{summary(ev, wallet.address)}</div>
+      <div className="mt-1.5 text-xs text-text-muted">{summary(ev, wallet.address)}</div>
       {open && direction && <DiscloseFlow ev={ev as TransferEvent} direction={direction} wallet={wallet} />}
     </li>
   );
@@ -116,26 +117,26 @@ function DiscloseFlow({ ev, direction, wallet }: { ev: TransferEvent; direction:
   }, [requestJson, ev, direction, wallet]);
 
   return (
-    <div className="mt-3 space-y-2 rounded-lg border border-amber-400/20 bg-amber-400/[0.04] p-3">
-      <p className="text-xs text-neutral-400">
+    <div className="mt-3 flex flex-col gap-2 rounded-xl border border-accent/20 bg-accent/[0.04] p-3">
+      <p className="text-xs text-text-muted">
         {direction === "received"
           ? "Prove this transfer paid you its exact amount."
           : "Prove you sent this transfer and what it paid the recipient."}{" "}
         Paste the verifier&apos;s request (their <code>pR</code> key and one-time <code>nu</code>).
       </p>
-      <textarea
-        className={`${inputCls} h-20 font-mono text-xs`}
+      <Textarea
+        className="h-20 font-mono text-xs"
         placeholder='{"pR":{"x":"0x…","y":"0x…"},"nu":"0x…"}'
         value={requestJson}
         onChange={(e) => setRequestJson(e.target.value)}
       />
-      <ProofButton onClick={generate} busy={busy} phase={busy ? "proving" : null} disabled={!requestJson.trim()}>
+      <Button size="sm" isLoading={busy} disabled={!requestJson.trim()} onClick={generate}>
         Generate disclosure proof
-      </ProofButton>
-      {error && <div className="rounded-lg border border-red-500/40 bg-red-950/40 p-2 text-xs text-red-300">{error}</div>}
+      </Button>
+      {error && <p className="rounded-xl border border-error/30 bg-error/10 p-2 text-xs text-error">{error}</p>}
       {bundleJson && (
-        <div className="space-y-2">
-          <textarea readOnly className={`${inputCls} h-28 font-mono text-xs`} value={bundleJson} />
+        <div className="flex flex-col gap-2">
+          <Textarea readOnly className="h-28 font-mono text-xs" value={bundleJson} />
           <CopyButton label="Copy bundle" payload={() => bundleJson} />
         </div>
       )}

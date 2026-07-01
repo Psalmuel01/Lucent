@@ -28,6 +28,8 @@ interface WalletCtx {
   lastSync: Date | null;
   connect: () => Promise<void>;
   refresh: () => Promise<void>;
+  /** Forget the local session. Freighter itself stays connected — the browser extension owns that grant. */
+  disconnect: () => void;
   log: (msg: string) => void;
   setError: (e: string | null) => void;
 }
@@ -73,9 +75,16 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, [wallet]);
 
+  const disconnect = useCallback(() => {
+    setWallet(null);
+    setView(null);
+    setLastSync(null);
+    setError(null);
+  }, []);
+
   const value = useMemo(
-    () => ({ wallet, view, connecting, error, logs, lastSync, connect, refresh, log, setError }),
-    [wallet, view, connecting, error, logs, lastSync, connect, refresh, log],
+    () => ({ wallet, view, connecting, error, logs, lastSync, connect, refresh, disconnect, log, setError }),
+    [wallet, view, connecting, error, logs, lastSync, connect, refresh, disconnect, log],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

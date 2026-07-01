@@ -1,135 +1,231 @@
 "use client";
 
 import { useState } from "react";
-
+import { motion } from "framer-motion";
+import { AppShell } from "@/components/layout/AppShell";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { GlassCard } from "@/components/ui/GlassCard";
+import { Button } from "@/components/ui/Button";
+import { NumericKeypad } from "@/components/ui/NumericKeypad";
+import { ProofStatusPill } from "@/components/ui/ProofStatusPill";
+import { TxStatus, type TxStep } from "@/components/ui/TxStatus";
+import { SectionLabel } from "@/components/ui/SectionLabel";
+import { ProofLoadingOverlay } from "@/components/ui/ProofLoadingOverlay";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { useWallet } from "@/lib/wallet-context";
 import { useAction } from "@/lib/use-action";
-import {
-  ConnectPrompt,
-  ErrorBox,
-  Field,
-  GlassCard,
-  Pill,
-  ProofButton,
-  SectionTitle,
-  Stat,
-  inputCls,
-} from "@/lib/ui";
+import { cn } from "@/lib/cn";
+
+type Tab = "deposit" | "withdraw";
 
 export default function ShieldPage() {
   const { wallet, view, connect, connecting, error } = useWallet();
   const { run, busy, phase } = useAction();
-  const [depositAmt, setDepositAmt] = useState("1000");
-  const [withdrawAmt, setWithdrawAmt] = useState("400");
+  const [tab, setTab] = useState<Tab>("deposit");
+  const [depositAmt, setDepositAmt] = useState("");
+  const [withdrawAmt, setWithdrawAmt] = useState("");
+  const [steps, setSteps] = useState<TxStep[]>([]);
 
   if (!wallet) {
     return (
-      <Shell>
-        <ErrorBox message={error} />
-        <ConnectPrompt onConnect={connect} busy={connecting} />
-      </Shell>
+      <AppShell>
+        <PageHeader title="Shield" showBack={false} />
+        <div className="flex flex-col gap-5 px-4 pb-6 md:mx-auto md:max-w-2xl md:px-8">
+          {error && <p className="rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</p>}
+          <GlassCard className="flex flex-col items-center gap-4 py-12 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-encrypted-bg">
+              <span className="text-2xl">🔒</span>
+            </div>
+            <p className="text-sm text-text-secondary">Connect Freighter to shield XLM into a confidential balance.</p>
+            <Button isLoading={connecting} onClick={connect}>
+              Connect Freighter
+            </Button>
+          </GlassCard>
+        </div>
+      </AppShell>
     );
   }
 
   const registered = view?.registered ?? false;
   const receiving = view?.receiving ?? 0n;
+  const spendable = view?.spendable ?? 0n;
+
+  async function register() {
+    setSteps([{ id: "register", label: "Prove key ownership", status: "active", estSeconds: 4 }]);
+    await run("register", async (sp) => {
+      await wallet!.register(sp);
+      setSteps((s) => s.map((x) => ({ ...x, status: "done" })));
+    });
+    setTimeout(() => setSteps([]), 1500);
+  }
+
+  async function deposit() {
+    if (!depositAmt) return;
+    await run("deposit", async () => {
+      await wallet!.deposit(BigInt(depositAmt));
+      setDepositAmt("");
+    });
+  }
+
+  async function withdraw() {
+    if (!withdrawAmt) return;
+    setSteps([
+      { id: "prove", label: "Generate withdraw proof", status: "active", estSeconds: 12 },
+      { id: "submit", label: "Submit withdrawal", status: "pending" },
+    ]);
+    await run("withdraw", async (sp) => {
+      await wallet!.withdraw(BigInt(withdrawAmt), (p) => {
+        sp(p);
+        setSteps((s) =>
+          s.map((x) =>
+            p === "submitting"
+              ? x.id === "prove"
+                ? { ...x, status: "done" }
+                : x.id === "submit"
+                  ? { ...x, status: "active" }
+                  : x
+              : x,
+          ),
+        );
+      });
+      setSteps((s) => s.map((x) => ({ ...x, status: "done" })));
+      setWithdrawAmt("");
+    });
+    setTimeout(() => setSteps([]), 1500);
+  }
+
+  const isProving = busy === "register" || (busy === "withdraw" && phase === "proving");
 
   return (
-    <Shell>
-      <ErrorBox message={error} />
+    <AppShell>
+      <PageHeader title="Shield" showBack={false} />
 
-      <GlassCard>
-        <div className="mb-3 flex items-center justify-between">
-          <span className="font-mono text-xs text-neutral-500">{view?.address}</span>
-          {view && view.matchesChain !== null && (
-            <Pill tone={view.matchesChain ? "green" : "red"}>
-              {view.matchesChain ? "state matches chain ✓" : "state mismatch ✗"}
-            </Pill>
-          )}
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <Stat label="Spendable" value={(view?.spendable ?? 0n).toString()} />
-          <Stat label="Receiving" value={receiving.toString()} />
-        </div>
-        <p className="mt-3 text-xs text-neutral-500">
-          {registered ? `synced through ledger ${view?.syncedLedger}` : "not registered yet"}
-        </p>
-      </GlassCard>
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="flex flex-col gap-5 px-4 pb-6 md:mx-auto md:max-w-2xl md:px-8"
+      >
+        {error && <p className="rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</p>}
 
-      {!registered ? (
-        <GlassCard>
-          <SectionTitle
-            title="Register"
-            hint="Bind your confidential keys to the contract (one-time). Everything else unlocks after this."
-          />
-          <ProofButton
-            onClick={() => run("register", (sp) => wallet.register(sp))}
-            busy={busy === "register"}
-            phase={phase}
-          >
-            Register
-          </ProofButton>
+        {/* Balances */}
+        <GlassCard padding="md">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <div className="text-[11px] uppercase tracking-widest text-text-muted">Spendable</div>
+              {view ? (
+                <div className="mt-0.5 font-display text-2xl font-bold tabular-nums text-text-primary">
+                  {spendable.toString()}
+                </div>
+              ) : (
+                <Skeleton className="mt-1 h-7 w-20" />
+              )}
+            </div>
+            <div>
+              <div className="text-[11px] uppercase tracking-widest text-text-muted">Receiving</div>
+              {view ? (
+                <div className="mt-0.5 font-display text-2xl font-bold tabular-nums text-text-primary">
+                  {receiving.toString()}
+                </div>
+              ) : (
+                <Skeleton className="mt-1 h-7 w-20" />
+              )}
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-text-muted">
+            {registered ? `synced through ledger ${view?.syncedLedger}` : "not registered yet"}
+          </p>
         </GlassCard>
-      ) : (
-        <>
-          <GlassCard>
-            <SectionTitle title="Deposit" hint="Public XLM (stroops) → your confidential receiving balance. No proof required." />
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-              <Field label="Amount">
-                <input className={inputCls} value={depositAmt} onChange={(e) => setDepositAmt(e.target.value)} />
-              </Field>
-              <ProofButton
-                onClick={() => run("deposit", () => wallet.deposit(BigInt(depositAmt || "0")))}
-                busy={busy === "deposit"}
-              >
-                Deposit
-              </ProofButton>
+
+        {!registered ? (
+          <GlassCard padding="md">
+            <SectionLabel>Register</SectionLabel>
+            <p className="mt-3 text-sm leading-relaxed text-text-secondary">
+              Bind your confidential keys to the contract — a one-time proof. Everything else unlocks
+              after this.
+            </p>
+            <div className="mt-4 flex flex-col gap-3">
+              {steps.length > 0 && <TxStatus steps={steps} />}
+              <Button fullWidth size="lg" isLoading={busy === "register"} onClick={register}>
+                {busy === "register" ? "Registering…" : "Register"}
+              </Button>
             </div>
           </GlassCard>
-
-          {receiving > 0n && (
-            <GlassCard className="border-amber-400/30">
-              <SectionTitle
-                title="Merge"
-                hint="Fold your receiving balance into spendable so you can send or withdraw it."
-              />
-              <ProofButton onClick={() => run("merge", () => wallet.merge())} busy={busy === "merge"}>
-                {`Merge ${receiving.toString()}`}
-              </ProofButton>
-            </GlassCard>
-          )}
-
-          <GlassCard>
-            <SectionTitle title="Withdraw" hint="Spendable → public XLM (to yourself). Generates a withdraw proof in-browser." />
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-              <Field label="Amount">
-                <input className={inputCls} value={withdrawAmt} onChange={(e) => setWithdrawAmt(e.target.value)} />
-              </Field>
-              <ProofButton
-                onClick={() => run("withdraw", (sp) => wallet.withdraw(BigInt(withdrawAmt || "0"), sp))}
-                busy={busy === "withdraw"}
-                phase={phase}
-              >
-                Withdraw
-              </ProofButton>
+        ) : (
+          <>
+            <div className="flex gap-2 rounded-2xl border border-border bg-card p-1">
+              {(["deposit", "withdraw"] as Tab[]).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className={cn(
+                    "flex-1 rounded-xl py-2.5 text-sm font-medium capitalize transition-all duration-200",
+                    tab === t ? "bg-accent text-black" : "text-text-muted hover:text-text-secondary",
+                  )}
+                >
+                  {t}
+                </button>
+              ))}
             </div>
-          </GlassCard>
-        </>
-      )}
-    </Shell>
-  );
-}
 
-function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="mx-auto max-w-2xl space-y-5 px-5 py-10">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Shield</h1>
-        <p className="mt-1 text-sm text-neutral-400">
-          Move value between public XLM and your confidential balance.
-        </p>
-      </header>
-      {children}
-    </main>
+            {tab === "deposit" && (
+              <>
+                <GlassCard padding="md">
+                  <NumericKeypad value={depositAmt} onChange={setDepositAmt} unit="XLM" />
+                </GlassCard>
+                <div className="flex justify-center">
+                  <ProofStatusPill status={busy === "deposit" ? "encrypting" : "idle"} />
+                </div>
+                <p className="px-2 text-center text-xs leading-relaxed text-text-muted">
+                  Moves public XLM into your receiving balance at a 1:1 ratio — no proof required.
+                </p>
+                <Button fullWidth size="lg" isLoading={busy === "deposit"} disabled={!depositAmt} onClick={deposit}>
+                  Deposit {depositAmt || "0"} XLM
+                </Button>
+              </>
+            )}
+
+            {tab === "withdraw" && (
+              <>
+                {receiving > 0n && (
+                  <GlassCard padding="sm" className="border-accent/25">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-xs text-text-secondary">
+                        You have {receiving.toString()} unmerged — merge before withdrawing more than spendable.
+                      </span>
+                      <Button size="sm" variant="secondary" isLoading={busy === "merge"} onClick={() => run("merge", () => wallet!.merge())}>
+                        Merge
+                      </Button>
+                    </div>
+                  </GlassCard>
+                )}
+                <GlassCard padding="md">
+                  <NumericKeypad
+                    value={withdrawAmt}
+                    onChange={setWithdrawAmt}
+                    unit="XLM"
+                    maxValue={spendable.toString()}
+                    onMax={() => setWithdrawAmt(spendable.toString())}
+                  />
+                </GlassCard>
+                <div className="flex justify-center">
+                  <ProofStatusPill status={isProving ? "encrypting" : "idle"} />
+                </div>
+                {steps.length > 0 && (
+                  <GlassCard padding="md">
+                    <TxStatus steps={steps} />
+                  </GlassCard>
+                )}
+                <Button fullWidth size="lg" isLoading={busy === "withdraw"} disabled={!withdrawAmt} onClick={withdraw}>
+                  Withdraw {withdrawAmt || "0"} XLM
+                </Button>
+              </>
+            )}
+          </>
+        )}
+      </motion.div>
+
+      <ProofLoadingOverlay open={busy === "withdraw" && phase === "proving"} estSeconds={12} fullScreen />
+    </AppShell>
   );
 }

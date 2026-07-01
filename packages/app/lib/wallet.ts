@@ -217,7 +217,7 @@ export class ConfidentialWallet {
     this.log(`merged (tx ${r.hash.slice(0, 10)}…)`);
   }
 
-  async transfer(to: string, amount: bigint, onPhase?: (p: TxPhase) => void): Promise<void> {
+  async transfer(to: string, amount: bigint, onPhase?: (p: TxPhase) => void): Promise<{ hash: string }> {
     const recipient = await this.client.confidentialBalance(to);
     if (!recipient) throw new Error("recipient is not registered");
     const kAudR = await this.client.auditorKey(recipient.auditorId);
@@ -245,6 +245,7 @@ export class ConfidentialWallet {
     // No r_e bookkeeping (§15.2): the witness derives it from (vk, sigma), so
     // discloseSent() re-derives it from the emitted event whenever needed.
     this.log(`transferred ${amount} → ${to.slice(0, 6)}… (tx ${r.hash.slice(0, 10)}…)`);
+    return { hash: r.hash };
   }
 
   async withdraw(amount: bigint, onPhase?: (p: TxPhase) => void): Promise<void> {

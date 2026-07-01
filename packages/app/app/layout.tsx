@@ -1,34 +1,25 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { ProductNav } from "./nav";
 import { WalletProvider } from "@/lib/wallet-context";
 
 export const metadata: Metadata = {
-  title: "Lucent — confidential payments on Stellar",
+  title: "Lucent — The amount is the only secret",
   description:
-    "Confidential payments on Stellar: shielded balances, private transfers, confidential payroll and escrow, with cryptographic auditability and selective disclosure. Testnet.",
+    "Confidential payments on Stellar. Sender and receiver are public; only the amount is encrypted, proven with zero-knowledge and verified natively on-chain.",
 };
 
-// Lucent is dark-only. Force the dark palette before first paint.
-const themeInit = `document.documentElement.classList.add('dark');`;
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: "#000000",
+};
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body className="min-h-screen font-sans">
-        <script dangerouslySetInnerHTML={{ __html: themeInit }} />
-        <WalletProvider>
-          <ProductNav />
-          {children}
-        </WalletProvider>
+    <html lang="en" suppressHydrationWarning>
+      <body className="min-h-dvh bg-void font-sans text-text-primary antialiased">
+        <WalletProvider>{children}</WalletProvider>
       </body>
     </html>
   );
