@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["token", "verifier", "auditor", "payroll"]
+members = ["token", "verifier", "auditor", "payroll", "escrow", "escrow-factory"]
 
 [workspace.package]
 edition = "2021"
