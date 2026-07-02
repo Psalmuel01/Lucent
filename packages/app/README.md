@@ -1,12 +1,31 @@
-# @lucent/app — confidential-token demo front-end
+# @lucent/app — Lucent front-end
 
-The Next.js browser demo for the [confidential token](../../README.md). One page per persona:
+The Next.js product front-end for [Lucent](../../README.md): landing, docs,
+and about pages, plus the app itself —
 
-- **`/wallet`** — connects Freighter, derives your confidential keys, and runs the five operations (register / deposit / merge / transfer / withdraw) with **proofs generated in the browser** (bb.js). Balances are reconstructed locally from chain events and shown with a "matches chain" badge (`StateEngine.verifyAgainstChain`).
-- **`/verify`** — the disclosure receiver: mint a one-time request, verify the returned proof against the chain. No wallet needed.
-- **`/auditor`** — decrypt transfer amounts with the registered auditor key.
+- **`/shield`** — deposit public XLM into a confidential balance, merge
+  receiving into spendable, withdraw back out.
+- **`/send`** — confidential transfer to any registered account.
+- **`/payroll`** — employer: create a template, open/fund/execute a run;
+  employee: claim.
+- **`/escrow`** — create/fund an escrow and drive it through its state
+  machine (mark-completed, release, dispute, resolve, timeout, refund).
+- **`/auditor`** — decrypt every transfer amount with the registered
+  Grumpkin auditor key. No wallet needed.
+- **`/prove`** — selective disclosure, both sides: prove a transfer (holder)
+  and verify a returned bundle (receiver, no wallet needed).
+- **`/profile`** — wallet identity, protocol info, disconnect.
 
-The orchestration (prover cache, Freighter signing, the five ops) lives in `lib/wallet.ts` over [`@lucent/sdk`](../sdk/README.md).
+All screens (except `/auditor` and the verify side of `/prove`) require a
+connected Freighter wallet and redirect to `/` if none is connected. Every
+proof-carrying action (register, withdraw, send, payroll execute, escrow
+fund) generates its UltraHonk proof **in the browser** via bb.js and shows a
+progress state immediately on tap.
+
+The orchestration (prover cache, Freighter signing, every on-chain operation)
+lives in `lib/wallet.ts` — a `ConfidentialWallet` class over
+[`@lucent/sdk`](../sdk/README.md) — shared across the app through
+`lib/wallet-context.tsx`.
 
 ## Run
 

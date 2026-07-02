@@ -1,6 +1,6 @@
 # @lucent/indexer
 
-A durable, full-history event source for the confidential-token demo — the complement to the RPC `getEvents` API, which only retains ~7 days of ledgers.
+A durable, full-history event source for Lucent — the complement to the RPC `getEvents` API, which only retains ~7 days of ledgers.
 
 ```
 Stellar testnet ──► Goldsky turbo pipeline ──► Postgres (raw_events)

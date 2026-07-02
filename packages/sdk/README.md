@@ -1,6 +1,10 @@
-# @lucent/sdk — confidential-token client SDK
+# @lucent/sdk — Lucent client SDK
 
-The TypeScript client for the [confidential token demo](../../README.md): it builds witnesses, generates and verifies UltraHonk proofs, talks to the Soroban contracts, reconstructs balances from chain events, and implements both compliance channels (auditor decryption and off-chain selective disclosure).
+The TypeScript client for [Lucent](../../README.md): it builds witnesses,
+generates and verifies UltraHonk proofs, talks to the Soroban contracts
+(confidential token, PayrollVault, PrivateEscrow), reconstructs balances from
+chain events, and implements both compliance channels — auditor decryption
+and off-chain selective disclosure.
 
 The SDK's crypto is the off-chain mirror of the on-chain Noir circuits — every generator, domain tag, and derivation matches `lib.nr` exactly, validated by executing the real circuits in the test suite.
 
@@ -9,7 +13,7 @@ The SDK's crypto is the off-chain mirror of the on-chain Noir circuits — every
 - **crypto** — Grumpkin (`@noble/curves`) and Poseidon2 (`@zkpassport/poseidon2` raw permutation), with generators, domain tags, and derivations matching the Noir `lib.nr` exactly. Validated by executing the real circuits (`noir_js`).
 - **witness** — per-circuit input builders (register / withdraw / transfer), mirroring each circuit's public-input order.
 - **proving** — UltraHonk via `bb.js` with a **keccak transcript** (mandatory: the on-chain verifier uses keccak256 Fiat–Shamir).
-- **chain** — RPC client, the `{payload, proof}` XDR envelopes, op submitters, and event ingestion (`chain/event-source.ts` is the hybrid RPC + indexer source — see [State reconstruction & retention](#state-reconstruction--retention)).
+- **chain** — RPC client, the `{payload, proof}` XDR envelopes, op submitters for the confidential token, **and the PayrollVault / PrivateEscrow submitters** (`chain/payroll.ts`, `chain/escrow.ts`), plus event ingestion (`chain/event-source.ts` is the hybrid RPC + indexer source — see [State reconstruction & retention](#state-reconstruction--retention)).
 - **state** — balance reconstruction from chain events with local persistence and an on-chain consistency check (see [State reconstruction & retention](#state-reconstruction--retention)).
 - **auditor** — decrypts the dual auditor ciphertexts emitted by transfers.
 - **disclosure** — the off-chain selective-disclosure protocol: witness building + proving on the holder side, the full verifier protocol (event resolution via RPC, on-chain key lookup, VK pinning, decryption) on the receiver side. The shared circuits + pinned VKs live in [`@lucent/disclosure`](../disclosure/README.md).

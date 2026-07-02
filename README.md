@@ -1,69 +1,139 @@
 # Lucent — Confidential Payments on Stellar
 
-**Lucent** is a confidential-payments product built on Stellar's confidential
-token: balances are Pedersen commitments on the Grumpkin curve, and every spend
-is proven with an UltraHonk zero-knowledge proof verified on-chain. On top of the
-token, Lucent adds two Soroban contracts — **PayrollVault** and **PrivateEscrow** —
-and a six-screen product front-end, with two compliance channels carried by the
-token itself: **dual auditor** ciphertexts (a master-key auditor can decrypt every
-transfer) and off-chain **selective disclosure** (a holder proves one amount of one
-transfer to one designated receiver).
+**Lucent** is a confidential payments protocol and product for Stellar. Sender
+and receiver addresses stay public and verifiable on-chain — only the amount
+moves in the dark. Balances are Pedersen commitments on the Grumpkin curve;
+every register, withdraw, and transfer carries an UltraHonk zero-knowledge
+proof generated in the browser and verified natively on-chain by Soroban. No
+off-chain operators, no relayers, no custodians.
 
-It is built on top of the [OpenZeppelin `stellar-contracts`](https://github.com/OpenZeppelin/stellar-contracts)
-`feat/confidential-verifier-ultrahonk` confidential-token module.
+On top of that primitive, Lucent ships a full payments product: shielded
+deposits and withdrawals, confidential transfers, confidential payroll,
+confidential escrow, an auditor console for compliance, and off-chain
+selective disclosure — plus a complete Next.js front-end (landing, docs,
+about, and a six-screen app) and a Freighter wallet integration.
 
-> ⚠️ **Not production ready.** The UltraHonk verifier backend and the circuits are
-> unaudited, and the escrow custody model carries a documented trust caveat (below).
-> Testnet only; do not use with real value.
+> ⚠️ **Not production ready.** The UltraHonk verifier backend and the circuits
+> are unaudited, and the escrow custody model carries a documented trust
+> caveat (below). Testnet only; do not use with real value.
 
-## Why the contracts work the way they do
+## Features
 
-A natural first instinct is to have the vault/escrow contract custody balances and
-do the math on-chain. Stellar's confidential model rules that out:
+- **Shield** — deposit public XLM into a confidential balance, merge receiving
+  into spendable, withdraw back to public XLM. Registration binds a Grumpkin
+  key set to the account, one time.
+- **Send** — confidential transfers to any registered account. The amount
+  never appears in plaintext anywhere on-chain — not in the transaction, not
+  in an event, not in contract storage.
+- **Payroll** — an employer distributes salaries to a set of employees in one
+  atomic run. No employee can read another's amount; the vault itself never
+  sees a plaintext salary either.
+- **Escrow** — two-party (optionally arbitrated) escrow whose locked amount
+  stays confidential through creation, funding, delivery, dispute, and
+  release. Each escrow is its own isolated confidential account.
+- **Auditor console** — the party holding the registered Grumpkin auditor key
+  decrypts every transfer amount and balance checkpoint across the
+  deployment, for every account, without needing anyone's cooperation. The
+  institutional compliance primitive.
+- **Selective disclosure (Prove)** — a holder proves that one specific
+  transfer paid exactly one amount to one counterparty, off-chain, revealing
+  nothing else. The receiving party verifies the proof against the chain
+  itself.
+- **Freighter wallet** — the only supported signer. Confidential keys are
+  derived deterministically from a Freighter message signature and cached
+  locally, so the signing prompt only appears once per account.
+- **Local state engine** — every balance read goes through a client-side
+  state reconstruction layer that persists decrypted openings and
+  re-verifies them against on-chain commitments (the Soroban RPC only serves
+  ~7 days of event history, so this persistence is load-bearing, not a cache).
+- **Proof UX** — every proof-carrying action shows a progress state
+  immediately on tap; nothing in the product ever looks frozen while a proof
+  generates in-browser (typically a few seconds, up to tens of seconds for
+  multi-proof flows like escrow funding).
 
-- A balance is a commitment `C = v·G + r·H`; only commitments and proofs are ever on-chain.
-- Every spend (`confidential_transfer`, `withdraw`) needs an UltraHonk proof generated
-  **off-chain** by the holder of the sender's Grumpkin secret. **A Soroban contract
-  cannot prove on-chain.**
-- `deposit` is not a private alternative — its amount is a plaintext `i128` argument.
+## How value moves
 
-So confidential value can only move via `confidential_transfer`s whose proofs come
-from the browser. That constraint shapes both new contracts into a **hybrid** design:
+A balance is a commitment `C = v·G + r·H` — the chain only ever sees
+commitments and proofs, never plaintext amounts. Every confidential account
+holds a **spendable** balance (what you can send or withdraw) and a
+**receiving** balance (where deposits and incoming transfers land); `merge`
+folds one into the other homomorphically, with no proof needed.
 
-| Contract | Model | How value moves |
-|----------|-------|-----------------|
-| **PayrollVault** | Orchestrator | The employer keeps salaries client-side and, on `execute_run`, submits one browser-proven `employer → employee` transfer per employee; the vault routes them atomically and records run state. Salaries never touch chain storage. |
-| **PrivateEscrow** | Custodial (factory) | Each escrow is a freshly deployed **instance contract** — its own address, hence its own isolated confidential account. The instance self-authorizes payouts as `from`; the depositor pre-generates both payout proofs at fund time and the state machine picks one. |
+| Operation | Proof? | Effect |
+|---|---|---|
+| `register` | ✔ | Bind a Grumpkin key set to the contract (one-time) |
+| `deposit` | — | Public XLM → receiving balance |
+| `merge` | — | Receiving → spendable |
+| `withdraw` | ✔ | Spendable → public XLM |
+| `confidential_transfer` | ✔ | Spendable → another account's receiving balance |
 
-The compliance story is unchanged and comes from the **token**: every transfer emits
-dual auditor ciphertexts to the registered Grumpkin key, so an employer-as-auditor can
-decrypt all salary amounts while employees read only their own.
+Every transfer also emits **dual auditor ciphertexts** — one for the sender's
+channel, one for the recipient's — encrypted to the registered auditor's
+Grumpkin public key. That's the compliance channel the Payroll and Auditor
+features build on: register an employer as the auditor, and every salary
+transfer becomes decryptable to them alone.
 
-### Escrow trust caveat
+Because a Soroban contract cannot generate a ZK proof, confidential value can
+only move via a `confidential_transfer` proven by whoever holds the sender's
+key — a contract can never silently move funds on someone's behalf. That
+single constraint is what shapes Payroll and Escrow into the design below.
 
-To pre-generate the instance→recipient and instance→depositor payout proofs, the
-depositor derives the escrow instance's Grumpkin secret at fund time and must discard
-it afterward. A depositor who retains it could re-spend the escrowed balance and
-invalidate both stored proofs. Acceptable for a testnet demo; not for production.
+## Protocol contracts
 
-## The six screens
+| Contract | Role |
+|---|---|
+| **Confidential token** | Holds commitments, verifies proofs, executes register / deposit / merge / withdraw / confidential_transfer. |
+| **Verifier** | UltraHonk verification-key registry, one key per circuit. |
+| **Auditor** | Grumpkin auditor public-key registry, indexed by auditor id. |
+| **PayrollVault** | Orchestrates confidential salary runs (below). |
+| **PrivateEscrow** (factory + instance) | Confidential two-party escrow (below). |
 
-The front-end (`packages/app`) replaces the demo's three-persona chooser with a
-product shell (dark theme, amber accents, Space Grotesk, glass cards, open-lock mark):
+**PayrollVault** is an orchestrator, not a custodian: an employer creates a
+template of employees and opens a run against it. Salaries are never written
+to chain storage — at `execute_run` the employer's browser proves one
+`confidential_transfer` per employee, and the vault routes them atomically
+and records run state. The employer registers as the run's auditor, so every
+salary stays decryptable to them and opaque to everyone else.
 
-- **/shield** — deposit public XLM → confidential, merge, and withdraw back out.
-- **/send** — confidential transfer to any registered account.
-- **/payroll** — employer: template → run → fund → execute; employee: claim.
-- **/escrow** — create/fund + a role- and state-aware action list (release, dispute, resolve, timeout, refund).
-- **/auditor** — decrypt every transfer amount with the registered Grumpkin auditor key.
-- **/prove** — selective disclosure, both sides: prove a transfer (holder) and verify a bundle (receiver).
+**PrivateEscrow** is custodial: each escrow deploys its own **instance
+contract**, giving it its own isolated confidential account (a confidential
+balance is keyed by contract address, so custody requires a dedicated
+address per escrow). The depositor funds the instance and hands over two
+pre-generated payout proofs — instance→recipient and instance→depositor —
+and the instance's own state machine (created → funded → completed →
+released / disputed / refunded / cancelled) submits exactly the one it
+selects.
 
-Every proof-carrying action shows a "Generating proof…" state immediately (bb.js proofs
-take a few seconds) — the UI never looks frozen. All balance reads go through the SDK's
-`StateEngine` local persistence (the Soroban RPC only serves ~7 days of events), with a
-"matches chain" badge from `verifyAgainstChain`.
+> **Escrow trust caveat.** To pre-generate those two payout proofs, the
+> depositor derives the instance's Grumpkin secret at fund time and must
+> discard it afterward. A depositor who retains it could re-spend the
+> escrowed balance and invalidate both stored proofs. Acceptable for a
+> testnet demo; not for production.
 
-## Run the front-end
+Lucent's confidential-token layer — the commitment scheme, the UltraHonk
+circuits, and the Poseidon2/Grumpkin crypto — is built on
+[OpenZeppelin `stellar-contracts`](https://github.com/OpenZeppelin/stellar-contracts)
+(`feat/confidential-verifier-ultrahonk`), consumed as a git dependency; the
+on-chain verifier backend is
+[Nethermind's `rs-soroban-ultrahonk`](https://github.com/NethermindEth/rs-soroban-ultrahonk).
+PayrollVault, PrivateEscrow, the SDK's payroll/escrow/disclosure layers, and
+the entire product front-end are Lucent's own.
+
+## Product
+
+The front-end (`packages/app`) is a dark, gold-accented Next.js app:
+
+- **Landing, Docs, About** — the public marketing surface.
+- **Shield · Send · Payroll · Escrow · Auditor · Prove · Profile** — the app,
+  reachable from a sidebar (desktop) or bottom nav (mobile). Shield, Send,
+  Payroll, Escrow, and Profile require a connected wallet and redirect to the
+  landing page if none is connected; Auditor needs no wallet at all, and
+  Prove only gates its holder-side tab.
+- A shared component library (glass cards, proof-loading overlays, encrypted
+  badges, a numeric keypad, tx-status steppers) and a `ConfidentialWallet`
+  client class wrapping the SDK's crypto, proving, chain, and state layers.
+
+## Getting started
 
 ```bash
 pnpm install
@@ -71,94 +141,107 @@ pnpm build:sdk               # the app imports @lucent/sdk from dist
 pnpm dev                     # http://localhost:3000
 ```
 
-Then install [Freighter](https://freighter.app/), switch it to **Testnet**, and fund
-your account (Freighter's friendbot). `next dev` already serves the cross-origin-isolation
-headers bb.js needs, so in-browser proving works locally with no extra setup.
+Install [Freighter](https://freighter.app/), switch it to **Testnet**, and
+fund your account (Freighter's built-in friendbot). `next dev` already serves
+the cross-origin-isolation headers in-browser proving needs, so nothing extra
+to configure locally.
 
-Shield / Send / Auditor / Prove work immediately against the token deployment in
-`deployments/testnet.json`. **Payroll and Escrow** show a "not configured" notice until
-you deploy the Lucent contracts (next section) — after which they light up automatically.
+Shield, Send, Auditor, and Prove work immediately against the deployment in
+`deployments/testnet.json`. **Payroll and Escrow** show a "not configured"
+notice until the PayrollVault and PrivateEscrow contracts are deployed (next
+section) — after which they light up automatically, no code change needed.
 
 ## Building & testing the contracts
 
-The contracts are a separate Cargo workspace and **must** build with `stellar contract
-build` (the `stellar-tokens` dep enables soroban-sdk's `experimental_spec_shaking_v2`).
+The contracts are a separate Cargo workspace and **must** build with
+`stellar contract build` (the `stellar-tokens` dependency enables
+soroban-sdk's `experimental_spec_shaking_v2`, which only that build path
+supports).
 
 ```bash
 pnpm build:contracts        # stellar contract build → packages/sdk/contracts/*.wasm
-cargo test --manifest-path contracts/Cargo.toml   # unit tests (mock-token based)
+cargo test --manifest-path contracts/Cargo.toml
 ```
 
-The new contracts are fully unit-tested against a mock confidential token:
+- `contracts/payroll` — PayrollVault state machine, employer auth, atomic
+  batch payout, cancel paths (10 tests).
+- `contracts/escrow-instance` — every escrow state transition, release-window
+  timing, arbiter vs. no-arbiter branches, auth (16 tests).
+- `contracts/escrow-factory` — deploys a real instance and drives it through
+  fund → mark_completed → release (1 test).
 
-- `contracts/payroll` — PayrollVault state machine, employer auth, atomic batch payout, cancel paths (10 tests).
-- `contracts/escrow-instance` — PrivateEscrow instance: every state transition, release-window timing, arbiter vs. no-arbiter branches, auth (16 tests).
-- `contracts/escrow-factory` — deploys a real instance and drives it fund → mark_completed → release (1 test).
-
-## Deploying to testnet (your own instance)
+## Deploying
 
 ```bash
-pnpm deploy:contracts       # deploys token stack + PayrollVault + PrivateEscrow factory
+pnpm deploy:contracts
 ```
 
-This deploys the whole stack under your `admin` stellar CLI identity and writes
-`deployments/testnet.json` **and** `packages/app/lib/deployment.json` — the app reads the
-latter, so it now points at your deployment with **no code edit or env var**; just rebuild
-and run. (`NEXT_PUBLIC_PAYROLL_ID` / `NEXT_PUBLIC_ESCROW_FACTORY_ID` exist only to override
-those two ids ahead of a redeploy.)
+Deploys the full stack — token, verifier, auditor, PayrollVault, and the
+PrivateEscrow factory — under your `admin` stellar CLI identity, and writes
+both `deployments/testnet.json` and `packages/app/lib/deployment.json`. The
+app reads the latter directly, so a redeploy takes effect with **no code
+edit and no env var** — just rebuild and run.
+(`NEXT_PUBLIC_PAYROLL_ID` / `NEXT_PUBLIC_ESCROW_FACTORY_ID` exist only to
+override those two ids ahead of a redeploy, e.g. to point at someone else's.)
 
-A full end-to-end walkthrough (real proofs on testnet):
+A full end-to-end walkthrough, real proofs on testnet:
 
 1. **Shield** — connect Freighter, register, deposit, merge.
 2. **Send** — confidential transfer to a second registered account.
-3. **Payroll** — create a template of employees, open + fund a run, enter salaries, execute; then **Auditor** decrypts every salary amount.
-4. **Escrow** — deploy + fund an escrow; walk it through mark-completed → release (or dispute → resolve).
-5. **Prove** — mint a request on the Verify tab, disclose a transfer on the Prove tab, verify the returned bundle.
+3. **Payroll** — create a template of employees, open + fund a run, enter
+   salaries, execute; then **Auditor** decrypts every salary amount.
+4. **Escrow** — deploy + fund an escrow; walk it through mark-completed →
+   release (or dispute → resolve).
+5. **Prove** — mint a request on the Verify tab, disclose a transfer on the
+   Prove tab, verify the returned bundle.
 
-> Deployer identity: the `admin` key in your stellar CLI config. Requires Rust with
-> `wasm32v1-none` and stellar-cli ≥ 25.2.
+> Deployer identity: the `admin` key in your stellar CLI config. Requires
+> Rust with `wasm32v1-none` and stellar-cli ≥ 25.2.
 
 ## Architecture
 
 ```
 contracts/                    Rust/Soroban (separate Cargo workspace)
-  token/                      ConfidentialToken (NoHooks) — the confidential token
-  verifier/                   UltraHonk VK registry
+  token/                      Confidential token (register/deposit/merge/withdraw/transfer)
+  verifier/                   UltraHonk verification-key registry
   auditor/                    Grumpkin auditor-key registry
-  payroll/                    PayrollVault — orchestrator (Lucent)
-  escrow-instance/            PrivateEscrow instance — custodial, one per escrow (Lucent)
-  escrow-factory/             PrivateEscrow factory — deploys instances (Lucent)
+  payroll/                    PayrollVault
+  escrow-instance/            PrivateEscrow instance
+  escrow-factory/             PrivateEscrow factory
 packages/
   sdk/        @lucent/sdk        crypto · witness · proving · chain (incl. payroll/escrow) · state · auditor · disclosure
-  disclosure/ @lucent/disclosure shared disclosure circuits + pinned VKs
+  disclosure/ @lucent/disclosure shared disclosure circuits + pinned verification keys
   app/        @lucent/app        Next.js product front-end (Freighter wallet)
-  indexer/    @lucent/indexer    optional Goldsky indexer for event history
+  indexer/    @lucent/indexer    optional Goldsky indexer for full event history
 scripts/                         deploy.ts · e2e.ts · e2e-disclosure.ts
 ```
 
-The protocol itself lives in [OpenZeppelin `stellar-contracts`](https://github.com/OpenZeppelin/stellar-contracts/tree/feat/confidential-verifier-ultrahonk),
-consumed as git dependencies; the UltraHonk verifier backend is
-[Nethermind's `rs-soroban-ultrahonk`](https://github.com/NethermindEth/rs-soroban-ultrahonk).
-
 ## Deployed (testnet)
 
-The shared confidential-token stack (`deployments/testnet.json`):
+Read from `deployments/testnet.json`, rewritten automatically by
+`pnpm deploy:contracts`:
 
 | Contract | ID |
-|----------|----|
-| token | `CBF64DEOVQAXJFBSNGFEUT2AH4H7K5JBY3ZYJ5GVEINMNSDISWRG5N3F` |
-| verifier | `CDCET36PIS44DWJM5UQSSI4ZHGRDSBIIQW4G4ALPYK3Y6FEQGY5ZWFXL` |
-| auditor | `CA4II62E35TQKPGHCPBD6EBAS732GSGS6H37UUWKEDHR4YTBVMPHVY4L` |
-| underlying | native XLM SAC `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` |
-
-PayrollVault and the PrivateEscrow factory are deployed per-instance by
-`pnpm deploy:contracts` (they land in `deployments/testnet.json` and the app env).
+|---|---|
+| Confidential token | `CBF64DEOVQAXJFBSNGFEUT2AH4H7K5JBY3ZYJ5GVEINMNSDISWRG5N3F` |
+| Verifier | `CDCET36PIS44DWJM5UQSSI4ZHGRDSBIIQW4G4ALPYK3Y6FEQGY5ZWFXL` |
+| Auditor | `CA4II62E35TQKPGHCPBD6EBAS732GSGS6H37UUWKEDHR4YTBVMPHVY4L` |
+| Underlying | native XLM SAC `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` |
+| PayrollVault | *not yet deployed — run `pnpm deploy:contracts`* |
+| PrivateEscrow factory | *not yet deployed — run `pnpm deploy:contracts`* |
 
 ## Prerequisites
 
 - Node ≥ 20, pnpm 10
-- For contracts: Rust with `wasm32v1-none`, `stellar` CLI ≥ 25.2. OZ crates are pulled
-  as git deps (pinned by `Cargo.lock`).
+- For contracts: Rust with `wasm32v1-none`, `stellar` CLI ≥ 25.2. OpenZeppelin
+  crates are pulled as git dependencies, pinned by `Cargo.lock`.
+
+## Acknowledgments
+
+Lucent's confidential-token primitive builds on
+[OpenZeppelin `stellar-contracts`](https://github.com/OpenZeppelin/stellar-contracts)
+and [Nethermind's `rs-soroban-ultrahonk`](https://github.com/NethermindEth/rs-soroban-ultrahonk)
+verifier.
 
 ## License
 
