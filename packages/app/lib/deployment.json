@@ -14,7 +14,7 @@
   },
   "auditor": {
     "id": 0,
-    "secretHex": "0x00b323d53fd43fc4e3710728fea88aa0600aa20726e07f1c558a17b682ed76b3",
+    "secretHex": "",
     "keyXHex": "0x20e9114a670a4ac2ae297c65a8a6ecc26f782af39d9be7ea7134a562c5427030",
     "keyYHex": "0x1924f028600e145cebddced39723196c9765ced6717a28454a15d527ffc120c8"
   },

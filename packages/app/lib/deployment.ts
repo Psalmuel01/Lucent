@@ -4,10 +4,11 @@
  * a redeploy updates the app with no code edit. The two Lucent contract ids
  * (PayrollVault, PrivateEscrow factory) can also be overridden from env.
  *
- * ⚠️ Demo-only exception: `auditor.secretHex` is the auditor's Grumpkin SECRET
- * key, shipped in the client bundle on purpose so anyone can play the auditor on
- * /auditor. In any real deployment it never leaves the auditor's machine — only
- * the public key `K_aud = k·H` goes on-chain.
+ * The auditor's Grumpkin SECRET key is deliberately *not* exposed here —
+ * `deploy.ts` redacts it before writing this file, so it never enters the
+ * client bundle. It stays in `deployments/testnet.json` (never imported by the
+ * app) for the deployer's own records. `/auditor` takes a pasted-in key
+ * instead of reading one from here.
  */
 import deployment from "./deployment.json";
 
@@ -24,8 +25,6 @@ export const DEPLOYMENT = {
   deployedAtLedger: deployment.deployedAtLedger,
   /** All accounts in this deployment register under this auditor id. */
   auditorId: deployment.auditor.id,
-  /** Auditor Grumpkin secret `k` (see header warning). */
-  auditorSecretHex: deployment.auditor.secretHex,
   contracts: {
     token: deployment.contracts.token,
     verifier: deployment.contracts.verifier,

@@ -91,10 +91,14 @@ export function loadDeployment(): Deployment {
 
 export function saveDeployment(d: Deployment): void {
   mkdirSync(dirname(DEPLOYMENTS), { recursive: true });
-  const json = JSON.stringify(d, null, 2);
-  writeFileSync(DEPLOYMENTS, json);
-  // Mirror into the app so the front-end picks up new ids without a code edit.
-  writeFileSync(APP_DEPLOYMENT, json + "\n");
+  writeFileSync(DEPLOYMENTS, JSON.stringify(d, null, 2));
+  // Mirror into the app so the front-end picks up new ids without a code edit —
+  // but the app's copy gets bundled into the shipped JS, so the auditor secret
+  // is redacted here. It stays in deployments/testnet.json (never imported by
+  // the app) for the deployer's own records; the /auditor console takes a
+  // pasted-in key instead of reading one from the bundle.
+  const redacted: Deployment = { ...d, auditor: { ...d.auditor, secretHex: "" } };
+  writeFileSync(APP_DEPLOYMENT, JSON.stringify(redacted, null, 2) + "\n");
 }
 
 export function readVk(name: string): Uint8Array {
