@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowRight, ChevronDown, ChevronRight } from "lucide-react";
+import { AlertTriangle, ArrowRight, ChevronDown, ChevronRight, KeyRound } from "lucide-react";
 import { LucentLogoMark } from "@/components/icons/LucentLogoMark";
 import { DEPLOYMENT } from "@/lib/deployment";
 
@@ -51,6 +51,22 @@ function P({ children }: { children: React.ReactNode }) {
   return <p className="mb-4 text-[15px] leading-relaxed text-text-secondary">{children}</p>;
 }
 
+function Callout({ tone = "warning", children }: { tone?: "warning" | "key"; children: React.ReactNode }) {
+  const Icon = tone === "key" ? KeyRound : AlertTriangle;
+  return (
+    <div
+      className={`mb-4 flex items-start gap-2.5 rounded-2xl border px-4 py-3.5 ${
+        tone === "key" ? "border-accent/25 bg-accent/[0.06]" : "border-warning/25 bg-warning/[0.08]"
+      }`}
+    >
+      <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${tone === "key" ? "text-accent" : "text-warning"}`} />
+      <div className={`text-[13.5px] leading-relaxed ${tone === "key" ? "text-accent/90" : "text-warning/85"}`}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function AddressRow({ name, addr }: { name: string; addr: string }) {
   if (!addr) {
     return (
@@ -80,19 +96,41 @@ export default function DocsPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) setActiveId(entry.target.id);
-        }
-      },
-      { rootMargin: "-20% 0px -70% 0px" },
+    const headings = SECTIONS.map(({ id }) => document.getElementById(id)).filter(
+      (el): el is HTMLElement => el !== null,
     );
-    SECTIONS.forEach(({ id }) => {
-      const el = document.getElementById(id);
-      if (el) observer.observe(el);
-    });
-    return () => observer.disconnect();
+    // Classic scrollspy: whichever heading's top has most recently scrolled
+    // past a fixed line near the top of the viewport is "current," and it
+    // stays current through that entire section's body — regardless of how
+    // long the section is — until the next heading also passes the line.
+    // (An IntersectionObserver "visible band" can't express this: once a
+    // heading's own line scrolls out of a thin band, the observer drops it,
+    // so long sections go dark for most of their own body.)
+    const THRESHOLD = 100; // just below the fixed nav; matches scroll-mt-24
+
+    let ticking = false;
+    function update() {
+      ticking = false;
+      let current = headings[0]?.id;
+      for (const el of headings) {
+        if (el.getBoundingClientRect().top <= THRESHOLD) current = el.id;
+        else break; // headings are in document order — none after this have passed either
+      }
+      if (current) setActiveId(current);
+    }
+    function onScroll() {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(update);
+    }
+
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
   }, []);
 
   const addresses = {
@@ -130,6 +168,7 @@ export default function DocsPage() {
               <a
                 key={id}
                 href={`#${id}`}
+                onClick={() => setActiveId(id)}
                 className={`rounded-lg px-3 py-2 text-sm transition-colors ${
                   activeId === id ? "bg-accent-bg font-medium text-accent" : "text-text-muted hover:text-text-secondary"
                 }`}
@@ -154,7 +193,10 @@ export default function DocsPage() {
                 <a
                   key={id}
                   href={`#${id}`}
-                  onClick={() => setSidebarOpen(false)}
+                  onClick={() => {
+                    setActiveId(id);
+                    setSidebarOpen(false);
+                  }}
                   className={`block px-4 py-2.5 text-sm transition-colors ${
                     activeId === id ? "text-accent" : "text-text-secondary hover:text-text-primary"
                   }`}
@@ -173,6 +215,11 @@ export default function DocsPage() {
             payroll, and lock escrow while keeping every amount hidden on-chain — visible to no one
             except the parties you authorize, not even validators.
           </P>
+          <Callout>
+            <strong>Not production ready.</strong> The UltraHonk verifier backend and the circuits are
+            unaudited, and the escrow custody model carries a documented trust caveat (see Encrypted
+            Escrow, below). Lucent runs on Stellar testnet only — do not use it with real value.
+          </Callout>
           <H3>The trust model</H3>
           <P>
             Lucent doesn&apos;t rely on trusted relayers or off-chain custody. Privacy comes from
@@ -213,6 +260,14 @@ transfer    proof  Spendable -> another account's receiving balance`}</Pre>
           </P>
 
           <H2 id="deposit-withdraw">Deposit & Withdraw</H2>
+          <H3>Register (one-time)</H3>
+          <P>
+            Before any of this, <strong>Shield</strong> derives a Grumpkin key set deterministically from
+            a Freighter message signature — the same keys every session, nothing extra to back up — and
+            proves ownership of it with a zero-knowledge proof that binds the key set to your Stellar
+            address on the token contract. This happens once per account; every confidential operation
+            below depends on it having already happened.
+          </P>
           <H3>Deposit</H3>
           <P>
             Go to <strong>Shield</strong> and deposit. This moves public USDC into your confidential
@@ -221,11 +276,17 @@ transfer    proof  Spendable -> another account's receiving balance`}</Pre>
             (7 decimals, so 1 USDC = 10,000,000 base units). Merge it into spendable before sending or
             withdrawing.
           </P>
+          <P>
+            Spendable and receiving are shown as two separate numbers deliberately: a deposit (or an
+            incoming transfer) counts as yours the moment it lands, but it isn&apos;t spendable or
+            withdrawable until you merge it in.
+          </P>
           <H3>Withdraw</H3>
           <P>
             Withdrawing is a two-step, in-browser flow: a withdraw proof is generated locally (this
-            takes a few seconds), then submitted on-chain. The Soroban verifier checks the proof and
-            converts your spendable balance back into public USDC.
+            takes a few seconds — you&apos;re proving &quot;I can open this commitment to a value at
+            most my balance&quot; without revealing the balance itself), then submitted on-chain. The
+            Soroban verifier checks the proof and converts your spendable balance back into public USDC.
           </P>
 
           <H2 id="private-payments">Private Payments</H2>
@@ -234,13 +295,34 @@ transfer    proof  Spendable -> another account's receiving balance`}</Pre>
             proof is generated in your browser and submitted with the transaction — the recipient
             address is visible on-chain; the amount is not.
           </P>
+          <H3>Why only registered recipients</H3>
+          <P>
+            Building the transfer proof requires the recipient&apos;s public viewing key (
+            <Code>PVK</Code>), which only exists on-chain once they&apos;ve completed the one-time
+            register step themselves. Send only lists addresses the app has already seen register — an
+            address with no <Code>PVK</Code> has nowhere for the proof to encrypt an amount into.
+          </P>
+          <H3>What the proof actually proves</H3>
+          <P>
+            <Code>confidential_transfer</Code> proves, without revealing any of the three numbers
+            involved: &quot;I know the opening of my spendable commitment, it covers at least this
+            amount, and here are two new commitments — one for what I&apos;m sending and one for what
+            stays in my own balance.&quot; The proof also seals the amount into two ciphertexts, one per
+            auditor channel (sender&apos;s and recipient&apos;s), so a registered auditor can decrypt it
+            later even though no one else can.
+          </P>
+          <P>
+            The sent amount lands in the recipient&apos;s receiving balance, not spendable — same as a
+            deposit, they merge it in whenever they like.
+          </P>
 
           <H2 id="payroll">Confidential Payroll</H2>
           <P>
             <strong>PayrollVault</strong> is an orchestrator, not a custodian: an employer creates a
             template of employees and opens a run. Salaries never touch chain storage — at execution
             the employer&apos;s browser proves one confidential transfer per employee, and the vault
-            routes them atomically. No employee can read another&apos;s salary.
+            routes them atomically. No employee can read another&apos;s salary, and the vault itself
+            never sees a plaintext amount either.
           </P>
           <Pre>{`create_template(employer, employees) -> template_id
 create_run(template_id)               -> run_id
@@ -248,13 +330,42 @@ fund_run(run_id)
 execute_run(run_id, transfers)        // one proof per employee
 cancel_run(run_id)
 claim()                               // employee folds salary into spendable`}</Pre>
+          <H3>Employer flow</H3>
+          <P>
+            <strong>Create a template</strong> once with the employee list — templates carry no
+            amounts, just who gets paid. <strong>Create a run</strong> against it to open a{" "}
+            <Code>Scheduled</Code> run. <strong>Fund the run</strong> records that the employer&apos;s
+            confidential spendable balance covers the total — a state marker, not a transfer, since the
+            vault can&apos;t read an encrypted balance to lock anything against it.
+          </P>
+          <P>
+            <strong>Execute the run</strong> is where the money actually moves: the employer enters each
+            salary, and the browser builds one transfer proof per employee, chained — employee 2&apos;s
+            proof spends the balance opening left over after employee 1&apos;s, and so on, so the whole
+            batch is internally consistent. All proofs submit in one transaction; the vault runs every
+            transfer and only marks the run <Code>Executed</Code> if all of them succeed — no partial
+            payroll runs. A <Code>Scheduled</Code> run can be cancelled any time before execution.
+          </P>
+          <H3>Employee flow</H3>
+          <P>
+            A paid employee sees the salary appear in their receiving balance and merges it into
+            spendable with <strong>Claim</strong>, same <Code>merge</Code> as anywhere else — no proof
+            needed.
+          </P>
+          <H3>Compliance</H3>
+          <P>
+            Every salary transfer is an ordinary <Code>confidential_transfer</Code>, so it carries the
+            same dual auditor ciphertexts as a Send. Register the employer as the deployment&apos;s
+            auditor and every salary they&apos;ve ever paid becomes decryptable to them on the Auditor
+            screen — while each employee still only ever sees their own.
+          </P>
 
           <H2 id="escrow">Encrypted Escrow</H2>
           <P>
-            <strong>PrivateEscrow</strong> is custodial: each escrow deploys its own instance contract
-            — its own confidential account with an isolated balance. The depositor funds it and hands
-            over two pre-generated payout proofs (to the recipient, and back to themselves); the
-            instance submits exactly the one the state machine selects.
+            <strong>PrivateEscrow</strong> is custodial, unlike Payroll: the funds actually need to sit
+            somewhere confidential between funding and release, and a confidential balance only exists
+            at a contract address, so each escrow deploys its own tiny instance contract just to hold
+            it — its own confidential account, isolated from every other escrow&apos;s.
           </P>
           <Pre>{`Depositor creates -> funds escrow      (CREATED -> FUNDED)
 Recipient delivers -> mark_completed   (FUNDED -> COMPLETED)
@@ -265,20 +376,124 @@ If depositor stalls past the release window:
   Without arbiter -> recipient claims      (auto RELEASED)
 
 No delivery -> depositor waits for timeout -> reclaims (REFUNDED)`}</Pre>
+          <H3>Funding: two calls, not one</H3>
+          <P>
+            Funding is the expensive step, proof-wise — the depositor derives a one-time Grumpkin
+            identity for the instance itself and builds four proofs: a register proof for that identity,
+            a transfer-in proof (depositor → instance), and — because the instance can never generate a
+            proof on its own later — both possible payout proofs up front, instance → recipient and
+            instance → depositor. At roughly 14KB each, all four together exceed what fits in one
+            Soroban transaction, so funding is two calls (two wallet confirmations, back to back):
+          </P>
+          <Pre>{`store_payout_proofs(release_proof, refund_proof)   // stored first
+fund(register_data, auditor_id, transfer_in)       // then this moves the money`}</Pre>
+          <P>
+            <Code>fund</Code> checks the payout proofs are already stored before it will run, so the
+            escrow can never end up <Code>Funded</Code> without a working settlement path already in
+            place. Once funding completes, the depositor discards the instance&apos;s one-time secret —
+            see the trust caveat below.
+          </P>
+          <H3>Settlement</H3>
+          <P>
+            Every payout proof was generated once, at funding time, against a fixed opening. That&apos;s
+            what lets the instance submit one of them unattended, whenever the state machine says so: no
+            one needs to be online or hold a key at settlement time. On the happy path the recipient
+            marks delivery, a 10-minute release window opens, and the depositor releases. If the
+            depositor stalls, the recipient either self-serves after the window (no arbiter) or escalates
+            to a dispute (arbiter configured) — the arbiter resolves by state transition alone and never
+            sees the amount.
+          </P>
+          <H3>Trust caveat</H3>
+          <Callout>
+            To pre-generate the two payout proofs, the depositor must derive the instance&apos;s Grumpkin
+            secret at fund time. They&apos;re expected to discard it immediately afterward — a depositor
+            who keeps it could re-spend the escrowed balance and invalidate both stored proofs.
+            Acceptable for a testnet demo; not a production-grade custody model.
+          </Callout>
 
           <H2 id="disclosure">Selective Disclosure</H2>
           <P>
-            Go to <strong>Prove</strong> to disclose one transfer to one counterparty — off-chain,
-            revealing nothing else. A verifier mints a one-time request; the holder proves the amount
-            with a zero-knowledge proof bound to that request; the verifier checks it against the chain
-            itself, never trusting the bundle.
+            The Auditor screen gives one party standing access to everything under an auditor id — the
+            right tool for a compliance relationship, wrong for a one-off. Selective disclosure answers
+            a narrower need: proving <em>one specific payment</em> to someone who shouldn&apos;t get a
+            decrypt key to your whole history — an accountant who needs one receipt, a landlord who
+            wants proof of one rent payment. It&apos;s a proof, generated and verified entirely
+            off-chain — there&apos;s no on-chain disclosure verifier, the chain is only ever read from,
+            never written to, for this flow.
+          </P>
+          <H3>Two claims</H3>
+          <P>
+            <strong>D-recipient</strong> — &quot;this on-chain transfer paid me exactly this
+            amount.&quot; Available for anything you received; you can already decrypt it with your own
+            viewing key.
+          </P>
+          <P>
+            <strong>D-sender</strong> — &quot;I sent this on-chain transfer for exactly this
+            amount.&quot; This one needs more: you re-derive the one-time ephemeral scalar your wallet
+            used at send time from data still on the event itself, then prove you can reconstruct what
+            the recipient decrypted. If that scalar isn&apos;t recoverable (old local state, a different
+            device), the transfer isn&apos;t disclosable as a sender — the Prove screen marks it
+            accordingly.
+          </P>
+          <H3>How it works</H3>
+          <P>
+            On <strong>Verify</strong> (no wallet required — this can be anyone, even someone with no
+            Stellar account at all), click &quot;Create request&quot;: a fresh public key and nonce,
+            generated locally, that binds whatever proof comes back to this request specifically so it
+            can&apos;t be replayed against someone else. Copy the resulting JSON and send it to the
+            holder however you&apos;d normally share a file.
+          </P>
+          <P>
+            On <strong>Prove</strong>, the holder pastes that JSON against the relevant transfer from
+            their event list. The browser generates a zero-knowledge proof bound to it — a few seconds
+            of in-browser proving — and produces a bundle to copy back. Paste the bundle into Verify to
+            check it.
+          </P>
+          <H3>Why the verifier doesn&apos;t have to trust the bundle</H3>
+          <P>
+            The verifier never takes the holder&apos;s word for anything except the proof and one sealed
+            ciphertext. It doesn&apos;t trust the bundle for who sent the transfer, who received it, or
+            what the transaction even was — it re-reads the actual event from the chain by the
+            bundle&apos;s event reference, re-reads the relevant account&apos;s public viewing key from
+            the token contract, and re-derives every other public input from that independently-fetched
+            chain state. Only then does it check the proof, and only after the proof checks out does it
+            decrypt the sealed amount with the verifier&apos;s own secret key — never the holder&apos;s.
+            The circuit&apos;s range and binding constraints mean a holder can&apos;t get a false amount
+            past the proof by construction.
           </P>
 
           <H2 id="auditor">Auditor View Key</H2>
           <P>
             Every account registers under an auditor id. The holder of that Grumpkin secret key can
             decrypt every transfer amount and balance checkpoint on the <strong>Auditor</strong> screen —
-            the institutional compliance primitive. Nobody else can.
+            the institutional compliance primitive. Nobody else can. The screen needs no wallet: paste
+            the secret into the unlock field, and it stays in page state only — never written to local
+            storage, never sent anywhere, gone the moment you navigate away or reload. The app&apos;s
+            shipped bundle does not contain a working default; that&apos;s deliberate, so no one gets
+            auditor access just by loading the page.
+          </P>
+          <P>
+            Once unlocked, the console fetches every transfer/withdraw event under that auditor id,
+            decrypts each one, and replays the stream into a running per-account view: spendable balance
+            from the sender-channel checkpoints, receiving balance as the sum of decrypted inbound
+            transfers plus public deposits, folded on merge.
+          </P>
+          <H3>Try it — demo key (testnet only)</H3>
+          <Callout tone="key">
+            This deployment&apos;s registered auditor id <Code>0</Code> key, so you can try the console
+            without deploying your own stack. Paste the <Code>secret</Code> value into the Auditor
+            screen&apos;s unlock field.
+          </Callout>
+          <Pre>{`secret:  0x00b323d53fd43fc4e3710728fea88aa0600aa20726e07f1c558a17b682ed76b3
+K_aud.x: 0x20e9114a670a4ac2ae297c65a8a6ecc26f782af39d9be7ea7134a562c5427030
+K_aud.y: 0x1924f028600e145cebddced39723196c9765ced6717a28454a15d527ffc120c8`}</Pre>
+          <P>
+            This key decrypts every confidential balance and transfer registered under auditor id 0 on
+            this specific testnet deployment. There&apos;s nothing sensitive behind it — testnet, no real
+            value, and the whole point of this screen is that this is what an auditor is meant to see —
+            but it is real key material for a live deployment, not a placeholder. It stops applying the
+            moment this stack is redeployed (a fresh random key is generated each time); check the
+            Contracts section below for which deployment is current.
           </P>
 
           <H2 id="contracts">Contracts</H2>
@@ -303,6 +518,16 @@ No delivery -> depositor waits for timeout -> reclaims (REFUNDED)`}</Pre>
           <P>
             No. The arbiter resolves disputes by state transition alone; the amount stays hidden through
             the entire lifecycle.
+          </P>
+          <H3>Auditor console vs. selective disclosure — which one do I want?</H3>
+          <P>
+            Auditor if you need standing, ongoing visibility into every amount under an auditor id — the
+            compliance relationship Payroll is built around. Selective disclosure if you need to prove
+            just one payment to one party who shouldn&apos;t get broader access — see{" "}
+            <a href="#disclosure" className="text-accent transition-colors hover:text-accent-hover">
+              Selective Disclosure
+            </a>{" "}
+            above.
           </P>
           <H3>Is Lucent audited?</H3>
           <P>

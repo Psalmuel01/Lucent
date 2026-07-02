@@ -1,55 +1,88 @@
-# Lucent — Confidential Payments on Stellar
+<div align="center">
 
-**Lucent** is a confidential payments protocol and product for Stellar. Sender
-and receiver addresses stay public and verifiable on-chain — only the amount
-moves in the dark. Balances are Pedersen commitments on the Grumpkin curve;
-every register, withdraw, and transfer carries an UltraHonk zero-knowledge
-proof generated in the browser and verified natively on-chain by Soroban. No
-off-chain operators, no relayers, no custodians.
+# Lucent
+
+**Confidential payments on Stellar.**
+
+Sender and receiver stay public and verifiable on-chain. Only the amount moves in the dark.
+
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Network: Stellar Testnet](https://img.shields.io/badge/network-Stellar%20Testnet-7D00FF)](https://stellar.org)
+[![Node ≥ 20](https://img.shields.io/badge/node-%E2%89%A520-339933?logo=node.js&logoColor=white)](package.json)
+[![pnpm 10](https://img.shields.io/badge/pnpm-10-F69220?logo=pnpm&logoColor=white)](package.json)
+[![Status: testnet only](https://img.shields.io/badge/status-testnet%20only-red)](#not-production-ready)
+
+</div>
+
+Balances are Pedersen commitments on the Grumpkin curve. Every register,
+withdraw, and transfer carries an UltraHonk zero-knowledge proof, generated
+in the browser and verified natively on-chain by Soroban — no off-chain
+operators, no relayers, no custodians.
 
 On top of that primitive, Lucent ships a full payments product: shielded
 deposits and withdrawals, confidential transfers, confidential payroll,
 confidential escrow, an auditor console for compliance, and off-chain
-selective disclosure — plus a complete Next.js front-end (landing, docs,
-about, and a six-screen app) and a Freighter wallet integration.
+selective disclosure — plus a complete Next.js front-end and a Freighter
+wallet integration.
 
+<a id="not-production-ready"></a>
 > ⚠️ **Not production ready.** The UltraHonk verifier backend and the circuits
 > are unaudited, and the escrow custody model carries a documented trust
-> caveat (below). Testnet only; do not use with real value.
+> caveat. Testnet only; do not use with real value.
+
+## Contents
+
+- [Quickstart](#quickstart)
+- [Features](#features)
+- [How value moves](#how-value-moves)
+- [Protocol contracts](#protocol-contracts)
+- [Product](#product)
+- [Building and testing the contracts](#building-and-testing-the-contracts)
+- [Deploying](#deploying)
+- [Architecture](#architecture)
+- [Deployed (testnet)](#deployed-testnet)
+- [Acknowledgments](#acknowledgments)
+- [License](#license)
+
+## Quickstart
+
+Requires **Node ≥ 20**, **pnpm 10**. For contract work you'll also need Rust
+with the `wasm32v1-none` target and `stellar` CLI ≥ 25.2.
+
+```bash
+pnpm install
+pnpm dev                     # http://localhost:3000
+```
+
+`pnpm dev` and `pnpm build` both build `@lucent/sdk` first automatically (it's
+a workspace package the app imports from its compiled `dist/`, not from
+source) — no separate build step needed.
+
+Install [Freighter](https://freighter.app/), switch it to **Testnet**, and
+fund your account (Freighter's built-in friendbot). `next dev` already serves
+the cross-origin-isolation headers in-browser proving needs, so there's
+nothing extra to configure locally.
+
+Shield, Send, Auditor, and Prove work immediately against the deployment in
+`deployments/testnet.json`. **Payroll and Escrow** show a "not configured"
+notice until their contracts are deployed ([below](#deploying)) — after which
+they light up automatically, no code change needed. Want to see the
+compliance view without deploying anything yourself? The in-app **Docs**
+page's Auditor section has a demo key you can paste straight in.
 
 ## Features
 
-- **Shield** — deposit public USDC into a confidential balance, merge receiving
-  into spendable, withdraw back to public USDC. Registration binds a Grumpkin
-  key set to the account, one time.
-- **Send** — confidential transfers to any registered account. The amount
-  never appears in plaintext anywhere on-chain — not in the transaction, not
-  in an event, not in contract storage.
-- **Payroll** — an employer distributes salaries to a set of employees in one
-  atomic run. No employee can read another's amount; the vault itself never
-  sees a plaintext salary either.
-- **Escrow** — two-party (optionally arbitrated) escrow whose locked amount
-  stays confidential through creation, funding, delivery, dispute, and
-  release. Each escrow is its own isolated confidential account.
-- **Auditor console** — the party holding the registered Grumpkin auditor key
-  decrypts every transfer amount and balance checkpoint across the
-  deployment, for every account, without needing anyone's cooperation. The
-  institutional compliance primitive.
-- **Selective disclosure (Prove)** — a holder proves that one specific
-  transfer paid exactly one amount to one counterparty, off-chain, revealing
-  nothing else. The receiving party verifies the proof against the chain
-  itself.
-- **Freighter wallet** — the only supported signer. Confidential keys are
-  derived deterministically from a Freighter message signature and cached
-  locally, so the signing prompt only appears once per account.
-- **Local state engine** — every balance read goes through a client-side
-  state reconstruction layer that persists decrypted openings and
-  re-verifies them against on-chain commitments (the Soroban RPC only serves
-  ~7 days of event history, so this persistence is load-bearing, not a cache).
-- **Proof UX** — every proof-carrying action shows a progress state
-  immediately on tap; nothing in the product ever looks frozen while a proof
-  generates in-browser (typically a few seconds, up to tens of seconds for
-  multi-proof flows like escrow funding).
+| | |
+|---|---|
+| **Shield** | Deposit public USDC into a confidential balance, merge receiving into spendable, withdraw back to public USDC. Registration binds a Grumpkin key set to the account, one time. |
+| **Send** | Confidential transfers to any registered account. The amount never appears in plaintext anywhere on-chain — not in the transaction, not in an event, not in contract storage. |
+| **Payroll** | An employer distributes salaries to a set of employees in one atomic run. No employee can read another's amount; the vault itself never sees a plaintext salary either. |
+| **Escrow** | Two-party (optionally arbitrated) escrow whose locked amount stays confidential through creation, funding, delivery, dispute, and release. Each escrow is its own isolated confidential account. |
+| **Auditor console** | The party holding the registered Grumpkin auditor key decrypts every transfer amount and balance checkpoint across the deployment, for every account, without needing anyone's cooperation. |
+| **Selective disclosure** | A holder proves that one specific transfer paid exactly one amount to one counterparty, off-chain, revealing nothing else. The counterparty verifies the proof against the chain itself. |
+| **Freighter wallet** | The only supported signer. Confidential keys are derived deterministically from a Freighter message signature and cached locally, so the signing prompt only appears once per account. |
+| **Local state engine** | Every balance read goes through a client-side reconstruction layer that persists decrypted openings and re-verifies them against on-chain commitments — load-bearing, not a cache, since the Soroban RPC only serves ~7 days of event history. |
+| **Proof UX** | Every proof-carrying action shows a progress state immediately on tap; nothing ever looks frozen while a proof generates in-browser (typically a few seconds, up to tens of seconds for multi-proof flows like escrow funding). |
 
 ## How value moves
 
@@ -67,16 +100,16 @@ folds one into the other homomorphically, with no proof needed.
 | `withdraw` | ✔ | Spendable → public USDC |
 | `confidential_transfer` | ✔ | Spendable → another account's receiving balance |
 
-`deposit` is the one public amount: it's a plaintext `i128` argument in USDC
-base units (7 decimals, so 1 USDC = 10,000,000 base units) — deliberately, so
-the on-chain reserve backing the confidential supply is auditable. Every other
+`deposit` is the one public amount: a plaintext `i128` argument in USDC base
+units (7 decimals, so 1 USDC = 10,000,000 base units) — deliberately, so the
+on-chain reserve backing the confidential supply stays auditable. Every other
 operation hides the amount behind a commitment and a proof.
 
 Every transfer also emits **dual auditor ciphertexts** — one for the sender's
 channel, one for the recipient's — encrypted to the registered auditor's
-Grumpkin public key. That's the compliance channel the Payroll and Auditor
-features build on: register an employer as the auditor, and every salary
-transfer becomes decryptable to them alone.
+Grumpkin public key. That's the compliance channel Payroll and Auditor build
+on: register an employer as the auditor, and every salary transfer becomes
+decryptable to them alone.
 
 Because a Soroban contract cannot generate a ZK proof, confidential value can
 only move via a `confidential_transfer` proven by whoever holds the sender's
@@ -90,8 +123,8 @@ single constraint is what shapes Payroll and Escrow into the design below.
 | **Confidential token** | Holds commitments, verifies proofs, executes register / deposit / merge / withdraw / confidential_transfer. |
 | **Verifier** | UltraHonk verification-key registry, one key per circuit. |
 | **Auditor** | Grumpkin auditor public-key registry, indexed by auditor id. |
-| **PayrollVault** | Orchestrates confidential salary runs (below). |
-| **PrivateEscrow** (factory + instance) | Confidential two-party escrow (below). |
+| **PayrollVault** | Orchestrates confidential salary runs. |
+| **PrivateEscrow** (factory + instance) | Confidential two-party escrow. |
 
 **PayrollVault** is an orchestrator, not a custodian: an employer creates a
 template of employees and opens a run against it. Salaries are never written
@@ -102,12 +135,21 @@ salary stays decryptable to them and opaque to everyone else.
 
 **PrivateEscrow** is custodial: each escrow deploys its own **instance
 contract**, giving it its own isolated confidential account (a confidential
-balance is keyed by contract address, so custody requires a dedicated
-address per escrow). The depositor funds the instance and hands over two
-pre-generated payout proofs — instance→recipient and instance→depositor —
-and the instance's own state machine (created → funded → completed →
-released / disputed / refunded / cancelled) submits exactly the one it
-selects.
+balance is keyed by contract address, so custody requires a dedicated address
+per escrow). Funding an instance is two on-chain calls, not one —
+`store_payout_proofs` stores the two pre-generated payout proofs
+(instance→recipient, instance→depositor), then `fund` registers the instance
+and transfers the amount in, refusing to run until the payout proofs are
+already stored. They're split because all four proofs together (register +
+transfer-in + both payout proofs, each a ~14KB UltraHonk proof) exceed what
+fits in one Soroban transaction.
+
+At settlement, the instance's own state machine (created → funded →
+completed → released / disputed / refunded / cancelled) submits exactly the
+one pre-generated proof it selects — the instance self-authorizes its own
+outgoing `confidential_transfer` by invocation, so no one needs to hold its
+key at settlement time. See the in-app Docs page for the full
+funding-to-settlement flow.
 
 > **Escrow trust caveat.** To pre-generate those two payout proofs, the
 > depositor derives the instance's Grumpkin secret at fund time and must
@@ -138,28 +180,11 @@ The front-end (`packages/app`) is a dark, gold-accented Next.js app:
   badges, a numeric keypad, tx-status steppers) and a `ConfidentialWallet`
   client class wrapping the SDK's crypto, proving, chain, and state layers.
 
-## Getting started
+For a full walkthrough of what each flow actually does on-chain, see the
+in-app **Docs** page (`/docs`) — it covers Shield, Send, Payroll, Escrow, the
+auditor model, and selective disclosure in depth.
 
-```bash
-pnpm install
-pnpm dev                     # http://localhost:3000
-```
-
-`pnpm dev` and `pnpm build` both build `@lucent/sdk` first automatically (it's
-a workspace package the app imports from its compiled `dist/`, not from
-source) — no separate build step needed.
-
-Install [Freighter](https://freighter.app/), switch it to **Testnet**, and
-fund your account (Freighter's built-in friendbot). `next dev` already serves
-the cross-origin-isolation headers in-browser proving needs, so nothing extra
-to configure locally.
-
-Shield, Send, Auditor, and Prove work immediately against the deployment in
-`deployments/testnet.json`. **Payroll and Escrow** show a "not configured"
-notice until the PayrollVault and PrivateEscrow contracts are deployed (next
-section) — after which they light up automatically, no code change needed.
-
-## Building & testing the contracts
+## Building and testing the contracts
 
 The contracts are a separate Cargo workspace and **must** build with
 `stellar contract build` (the `stellar-tokens` dependency enables
@@ -171,12 +196,11 @@ pnpm build:contracts        # stellar contract build → packages/sdk/contracts/
 cargo test --manifest-path contracts/Cargo.toml
 ```
 
-- `contracts/payroll` — PayrollVault state machine, employer auth, atomic
-  batch payout, cancel paths (10 tests).
-- `contracts/escrow-instance` — every escrow state transition, release-window
-  timing, arbiter vs. no-arbiter branches, auth (16 tests).
-- `contracts/escrow-factory` — deploys a real instance and drives it through
-  fund → mark_completed → release (1 test).
+| Crate | Coverage | Tests |
+|---|---|---|
+| `contracts/payroll` | State machine, employer auth, atomic batch payout, cancel paths | 10 |
+| `contracts/escrow-instance` | Every state transition, release-window timing, arbiter vs. no-arbiter branches, auth, the two-step `store_payout_proofs` → `fund` guard | 18 |
+| `contracts/escrow-factory` | Deploys a real instance and drives it through `store_payout_proofs` → `fund` → `mark_completed` → `release` | 1 |
 
 ## Deploying
 
@@ -195,9 +219,11 @@ Deploys the full stack — token, verifier, auditor, PayrollVault, and the
 PrivateEscrow factory — under your `admin` stellar CLI identity, and writes
 both `deployments/testnet.json` and `packages/app/lib/deployment.json`. The
 app reads the latter directly, so a redeploy takes effect with **no code
-edit and no env var** — just rebuild and run.
-(`NEXT_PUBLIC_PAYROLL_ID` / `NEXT_PUBLIC_ESCROW_FACTORY_ID` exist only to
-override those two ids ahead of a redeploy, e.g. to point at someone else's.)
+edit and no env var** — just rebuild and run. (`NEXT_PUBLIC_PAYROLL_ID` /
+`NEXT_PUBLIC_ESCROW_FACTORY_ID` exist only to override those two ids ahead of
+a redeploy, e.g. to point at someone else's.)
+
+> Deployer identity: the `admin` key in your stellar CLI config.
 
 A full end-to-end walkthrough, real proofs on testnet:
 
@@ -205,13 +231,10 @@ A full end-to-end walkthrough, real proofs on testnet:
 2. **Send** — confidential transfer to a second registered account.
 3. **Payroll** — create a template of employees, open + fund a run, enter
    salaries, execute; then **Auditor** decrypts every salary amount.
-4. **Escrow** — deploy + fund an escrow; walk it through mark-completed →
-   release (or dispute → resolve).
+4. **Escrow** — deploy + fund an escrow (two wallet confirmations); walk it
+   through mark-completed → release (or dispute → resolve).
 5. **Prove** — mint a request on the Verify tab, disclose a transfer on the
    Prove tab, verify the returned bundle.
-
-> Deployer identity: the `admin` key in your stellar CLI config. Requires
-> Rust with `wasm32v1-none` and stellar-cli ≥ 25.2.
 
 ## Architecture
 
@@ -228,37 +251,34 @@ packages/
   disclosure/ @lucent/disclosure shared disclosure circuits + pinned verification keys
   app/        @lucent/app        Next.js product front-end (Freighter wallet)
   indexer/    @lucent/indexer    optional Goldsky indexer for full event history
-scripts/                         deploy.ts · e2e.ts · e2e-disclosure.ts
+scripts/                         deploy.ts · deploy-escrow.ts · e2e.ts · e2e-disclosure.ts
 ```
 
 ## Deployed (testnet)
 
 Read from `deployments/testnet.json`, rewritten automatically by
-`pnpm deploy:contracts`. The stack was cleared for the USDC migration — the
-contract IDs below fill in on the next deploy:
+`pnpm deploy:contracts`.
 
 | Contract | ID |
 |---|---|
 | Underlying | USDC SAC `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA` (issuer `GBBD47IF…FLA5`) |
-| Confidential token | *not yet deployed — run `pnpm deploy:contracts`* |
-| Verifier | *not yet deployed — run `pnpm deploy:contracts`* |
-| Auditor | *not yet deployed — run `pnpm deploy:contracts`* |
-| PayrollVault | *not yet deployed — run `pnpm deploy:contracts`* |
-| PrivateEscrow factory | *not yet deployed — run `pnpm deploy:contracts`* |
-
-## Prerequisites
-
-- Node ≥ 20, pnpm 10
-- For contracts: Rust with `wasm32v1-none`, `stellar` CLI ≥ 25.2. OpenZeppelin
-  crates are pulled as git dependencies, pinned by `Cargo.lock`.
+| Confidential token | `CDQLYWKQYQ7QUUU6E5R4YTOZLEUN3OQ62GCS6SCCOLIL7SBT4T2MXPKU` |
+| Verifier | `CD7K5WUH7PYGFJLTD4TH7BIEO4TOJUZBLGQDJTTXKASI5TLPLO4R6KDY` |
+| Auditor | `CBJ43COFQXAWZNZTQQ6XD2T6WRKFAX37GKUD6D5RJE2Q2KLWIKAOVQ5V` (id `0` — demo key in the Docs page) |
+| PayrollVault | `CB4S4ARQVMDI6WUS7IT4VB2EEQBGRFWRS23Q4N765Y6UNLHNU6T4AUFV` |
+| PrivateEscrow factory | `CASFGRKYQNHJTI535X4KVXJOYJDKRGFTJDEPMJNR4WJMAQYVXY5GIOLI` |
+| PrivateEscrow instance wasm | `44c5852692374c24c5fe2cc6c9e7fcfa936418365ae352266182743794501306` |
 
 ## Acknowledgments
 
-Lucent's confidential-token primitive builds on
+Lucent is built on
+[`stellar-confidential-token-demo`](https://github.com/brozorec/stellar-confidential-token-demo),
+an open-source confidential-payments demo for Stellar (MIT). Its
+confidential-token primitive builds on
 [OpenZeppelin `stellar-contracts`](https://github.com/OpenZeppelin/stellar-contracts)
 and [Nethermind's `rs-soroban-ultrahonk`](https://github.com/NethermindEth/rs-soroban-ultrahonk)
 verifier.
 
 ## License
 
-MIT.
+[MIT](LICENSE)
