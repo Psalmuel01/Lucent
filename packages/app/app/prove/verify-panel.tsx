@@ -163,15 +163,15 @@ export function VerifyPanel() {
 
       {error && (
         <GlassCard padding="md" className="border-error/40">
-          <h3 className="mb-1 font-medium text-error">Rejected at: {error.stage}</h3>
+          <h3 className="mb-1 text-md font-medium text-error">Rejected at: {error.stage}</h3>
           <p className="text-sm text-error/90">{error.message}</p>
         </GlassCard>
       )}
 
       {result && (
         <GlassCard padding="md" className="border-success/40">
-          <h3 className="mb-2 font-medium text-success">Disclosure verified ✓</h3>
-          <div className="mb-3 font-display text-3xl font-bold tabular-nums text-text-primary">
+          <h3 className="mb-2 font-medium text-md text-success">Disclosure verified ✓</h3>
+          <div className="mb-3 font-display text-xl font-bold tabular-nums text-text-primary">
             {displayAmount(result.amount)}
           </div>
           <p className="text-sm text-text-secondary">

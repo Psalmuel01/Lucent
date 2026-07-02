@@ -34,18 +34,27 @@ export function NumericKeypad({
       onChange(value.slice(0, -1) || "");
       return;
     }
+    let nextVal = value;
     if (key === ".") {
       if (value.includes(".")) return;
-      onChange((value || "0") + ".");
-      return;
+      nextVal = (value || "0") + ".";
+    } else if (value === "0" && key !== ".") {
+      nextVal = key;
+    } else {
+      const [, frac] = value.split(".");
+      if (frac !== undefined && frac.length >= maxDecimals) return;
+      nextVal = value + key;
     }
-    if (value === "0" && key !== ".") {
-      onChange(key);
-      return;
+
+    if (maxValue !== undefined) {
+      const parsedNext = parseFloat(nextVal);
+      const parsedMax = parseFloat(maxValue);
+      if (!isNaN(parsedNext) && !isNaN(parsedMax) && parsedNext > parsedMax) {
+        return;
+      }
     }
-    const [, frac] = value.split(".");
-    if (frac !== undefined && frac.length >= maxDecimals) return;
-    onChange(value + key);
+
+    onChange(nextVal);
   }
 
   const display = value || "0";

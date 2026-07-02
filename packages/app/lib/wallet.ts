@@ -88,6 +88,7 @@ import { DEPLOYMENT } from "./deployment";
 import { connectFreighter } from "./freighter";
 import { keyDerivationMessage, skFromSignature } from "./derive-key";
 import { ensureBrowserBackend } from "./bb-loader";
+import { Address, scValToNative } from "@stellar/stellar-sdk";
 
 type Log = (msg: string) => void;
 type CircuitName = "register" | "withdraw" | "transfer" | "disclose_recipient" | "disclose_sender";
@@ -110,6 +111,7 @@ export interface WalletView {
   receiving: bigint;
   syncedLedger: number;
   matchesChain: boolean | null;
+  publicUSDC: bigint;
 }
 
 export class ConfidentialWallet {
@@ -675,6 +677,18 @@ export class ConfidentialWallet {
     if (onchain) {
       matchesChain = (await this.engine.verifyAgainstChain()).ok;
     }
+    let publicUSDC = 0n;
+    const underlying = DEPLOYMENT.contracts.underlying;
+    if (underlying) {
+      try {
+        const scVal = await this.client.simulate(underlying, "balance", [
+          new Address(this.address).toScVal(),
+        ]);
+        publicUSDC = scValToNative(scVal) as bigint;
+      } catch (e) {
+        this.log(`failed to fetch public USDC balance: ${e}`);
+      }
+    }
     return {
       address: this.address,
       registered: onchain !== null,
@@ -682,6 +696,7 @@ export class ConfidentialWallet {
       receiving: state.receiving.v,
       syncedLedger: state.syncedLedger,
       matchesChain,
+      publicUSDC,
     };
   }
 }

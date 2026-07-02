@@ -35,6 +35,7 @@ export default function ShieldPage() {
   const registered = view?.registered ?? false;
   const receiving = view?.receiving ?? 0n;
   const spendable = view?.spendable ?? 0n;
+  const publicUSDC = view?.publicUSDC ?? 0n;
 
   async function register() {
     setSteps([{ id: "register", label: "Prove key ownership", status: "active", estSeconds: 4 }]);
@@ -170,7 +171,13 @@ export default function ShieldPage() {
                   </div>
                 </GlassCard>
                 <GlassCard padding="md">
-                  <NumericKeypad value={depositAmt} onChange={setDepositAmt} unit="USDC" />
+                  <NumericKeypad
+                    value={depositAmt}
+                    onChange={setDepositAmt}
+                    unit="USDC"
+                    maxValue={formatAmount(publicUSDC)}
+                    onMax={() => setDepositAmt(formatAmount(publicUSDC, DECIMALS))}
+                  />
                 </GlassCard>
                 <div className="flex justify-center">
                   <ProofStatusPill status={busy === "deposit" ? "encrypting" : "idle"} />
