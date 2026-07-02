@@ -17,6 +17,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Pill } from "@/components/ui/Pill";
 import { ProofLoadingOverlay } from "@/components/ui/ProofLoadingOverlay";
 import { useWallet } from "@/lib/wallet-context";
+import { useRequireWallet } from "@/lib/use-require-wallet";
 import { useAction } from "@/lib/use-action";
 import { errMsg } from "@/lib/err";
 import { DEPLOYMENT } from "@/lib/deployment";
@@ -44,7 +45,8 @@ const STATUS_META: Record<RunStatus, { label: string; tone: "neutral" | "amber" 
 };
 
 export default function PayrollPage() {
-  const { wallet, view, connect, connecting, error, setError } = useWallet();
+  const wallet = useRequireWallet();
+  const { view, error, setError } = useWallet();
   const { run, busy, phase } = useAction();
 
   const [topTab, setTopTab] = useState<TopTab>("employer");
@@ -89,22 +91,7 @@ export default function PayrollPage() {
 
   useEffect(reload, [reload]);
 
-  if (!wallet) {
-    return (
-      <AppShell>
-        <PageHeader title="Payroll" showBack={false} />
-        <div className="flex flex-col gap-5 px-4 pb-6 md:mx-auto md:max-w-2xl md:px-8">
-          {error && <p className="rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</p>}
-          <GlassCard className="flex flex-col items-center gap-4 py-12 text-center">
-            <p className="text-sm text-text-secondary">Connect Freighter to run confidential payroll.</p>
-            <Button isLoading={connecting} onClick={connect}>
-              Connect Freighter
-            </Button>
-          </GlassCard>
-        </div>
-      </AppShell>
-    );
-  }
+  if (!wallet) return null;
 
   if (!configured) {
     return (

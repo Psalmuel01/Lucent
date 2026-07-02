@@ -13,38 +13,22 @@ import { SectionLabel } from "@/components/ui/SectionLabel";
 import { ProofLoadingOverlay } from "@/components/ui/ProofLoadingOverlay";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useWallet } from "@/lib/wallet-context";
+import { useRequireWallet } from "@/lib/use-require-wallet";
 import { useAction } from "@/lib/use-action";
 import { cn } from "@/lib/cn";
 
 type Tab = "deposit" | "withdraw";
 
 export default function ShieldPage() {
-  const { wallet, view, connect, connecting, error } = useWallet();
+  const wallet = useRequireWallet();
+  const { view, error } = useWallet();
   const { run, busy, phase } = useAction();
   const [tab, setTab] = useState<Tab>("deposit");
   const [depositAmt, setDepositAmt] = useState("");
   const [withdrawAmt, setWithdrawAmt] = useState("");
   const [steps, setSteps] = useState<TxStep[]>([]);
 
-  if (!wallet) {
-    return (
-      <AppShell>
-        <PageHeader title="Shield" showBack={false} />
-        <div className="flex flex-col gap-5 px-4 pb-6 md:mx-auto md:max-w-2xl md:px-8">
-          {error && <p className="rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</p>}
-          <GlassCard className="flex flex-col items-center gap-4 py-12 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-encrypted-bg">
-              <span className="text-2xl">🔒</span>
-            </div>
-            <p className="text-sm text-text-secondary">Connect Freighter to shield XLM into a confidential balance.</p>
-            <Button isLoading={connecting} onClick={connect}>
-              Connect Freighter
-            </Button>
-          </GlassCard>
-        </div>
-      </AppShell>
-    );
-  }
+  if (!wallet) return null;
 
   const registered = view?.registered ?? false;
   const receiving = view?.receiving ?? 0n;

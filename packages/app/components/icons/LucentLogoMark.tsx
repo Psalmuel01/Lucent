@@ -7,7 +7,7 @@ interface Props extends SVGProps<SVGSVGElement> {
   showBg?: boolean;
 }
 
-/** Open-padlock brand mark — the shackle is drawn open, mid-swing. */
+/** Sparkle / radiance mark — a four-point star of light, for "Lucent" (shining, luminous). */
 export function LucentLogoMark({ size = 32, showBg = true, ...props }: Props) {
   return (
     <svg
@@ -19,19 +19,13 @@ export function LucentLogoMark({ size = 32, showBg = true, ...props }: Props) {
       {...props}
     >
       {showBg && <rect width="48" height="48" rx="12" fill="#080808" />}
-      {/* Open shackle arc — swung open to the right */}
+      {/* Primary sparkle */}
       <path
-        d="M15 22 L15 15 A9 9 0 0 1 33 15 L33 18"
-        stroke="#FBBF24"
-        strokeWidth="4"
-        strokeLinecap="round"
-        fill="none"
+        d="M25.5 6 L28.6 20.4 L42 24 L28.6 27.6 L25.5 42 L22.4 27.6 L9 24 L22.4 20.4 Z"
+        fill="#FBBF24"
       />
-      {/* Lock body */}
-      <rect x="10" y="22" width="28" height="19" rx="5" fill="#FBBF24" />
-      {/* Keyhole */}
-      <circle cx="24" cy="30.5" r="3.5" fill="#080808" />
-      <rect x="22.5" y="30" width="3" height="5.5" rx="1.5" fill="#080808" />
+      {/* Companion glint, upper-right */}
+      <path d="M36 8 L37.4 12.6 L42 14 L37.4 15.4 L36 20 L34.6 15.4 L30 14 L34.6 12.6 Z" fill="#FBBF24" />
     </svg>
   );
 }

@@ -26,7 +26,8 @@ interface WalletCtx {
   error: string | null;
   logs: string[];
   lastSync: Date | null;
-  connect: () => Promise<void>;
+  /** Resolves to the connected wallet, or `null` if connection failed (see `error`). */
+  connect: () => Promise<ConfidentialWallet | null>;
   refresh: () => Promise<void>;
   /** Forget the local session. Freighter itself stays connected — the browser extension owns that grant. */
   disconnect: () => void;
@@ -57,8 +58,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       const v = await w.refresh();
       setView(v);
       setLastSync(new Date());
+      return w;
     } catch (e) {
       setError(errMsg(e));
+      return null;
     } finally {
       setConnecting(false);
     }

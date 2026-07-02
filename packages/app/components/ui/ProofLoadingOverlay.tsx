@@ -45,7 +45,7 @@ export function ProofLoadingOverlay({
         <h3 className="font-display text-base font-semibold text-text-primary">
           Generating zero-knowledge proof
         </h3>
-        <p className="max-w-[26ch] text-xs leading-relaxed text-text-muted">
+        <p className=" text-xs leading-relaxed text-text-muted">
           {message ?? `This runs entirely in your browser and takes about ${estSeconds} seconds. Don't close this tab.`}
         </p>
       </div>

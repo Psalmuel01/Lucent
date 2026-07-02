@@ -11,10 +11,12 @@ import { SectionLabel } from "@/components/ui/SectionLabel";
 import { Pill } from "@/components/ui/Pill";
 import { LucentLogoMark } from "@/components/icons/LucentLogoMark";
 import { useWallet } from "@/lib/wallet-context";
+import { useRequireWallet } from "@/lib/use-require-wallet";
 import { DEPLOYMENT } from "@/lib/deployment";
 
 export default function ProfilePage() {
-  const { wallet, view, connect, connecting, error, disconnect } = useWallet();
+  const wallet = useRequireWallet();
+  const { view, disconnect } = useWallet();
   const router = useRouter();
   const [copied, setCopied] = useState(false);
 
@@ -30,22 +32,7 @@ export default function ProfilePage() {
     router.push("/");
   }
 
-  if (!wallet) {
-    return (
-      <AppShell>
-        <PageHeader title="Profile" showBack={false} />
-        <div className="flex flex-col gap-5 px-4 pb-6 md:mx-auto md:max-w-2xl md:px-8">
-          {error && <p className="rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</p>}
-          <GlassCard className="flex flex-col items-center gap-4 py-12 text-center">
-            <p className="text-sm text-text-secondary">Connect Freighter to view your profile.</p>
-            <Button isLoading={connecting} onClick={connect}>
-              Connect Freighter
-            </Button>
-          </GlassCard>
-        </div>
-      </AppShell>
-    );
-  }
+  if (!wallet) return null;
 
   const synced = view?.matchesChain === true;
 
