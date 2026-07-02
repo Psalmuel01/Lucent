@@ -36,6 +36,7 @@ import { Button } from "@/components/ui/Button";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 import { Pill, type PillTone } from "@/components/ui/Pill";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { displayAmount } from "@/lib/amount";
 import { DEPLOYMENT } from "@/lib/deployment";
 import { errMsg } from "@/lib/err";
 import { CopyButton } from "../copy-button";
@@ -270,8 +271,8 @@ export default function AuditorPage() {
                 {accounts.map((a) => (
                   <tr key={a.address} className="border-t border-border">
                     <td className="py-1.5 font-mono">{shortAddr(a.address)}</td>
-                    <td className="py-1.5 font-mono tabular-nums text-text-primary">{a.spendable === null ? "?" : a.spendable.toString()}</td>
-                    <td className="py-1.5 font-mono tabular-nums text-text-primary">{a.receiving.toString()}</td>
+                    <td className="py-1.5 font-mono tabular-nums text-text-primary">{a.spendable === null ? "?" : displayAmount(a.spendable)}</td>
+                    <td className="py-1.5 font-mono tabular-nums text-text-primary">{displayAmount(a.receiving)}</td>
                     <td className="py-1.5 text-text-muted">ledger {a.lastLedger}</td>
                   </tr>
                 ))}
@@ -320,7 +321,7 @@ function AuditRowView({ row }: { row: AuditRow }) {
         <span className="font-mono text-xs text-text-muted">{parties}</span>
         <span className="flex-1" />
         {row.amount !== null && (
-          <span className="font-mono text-sm font-medium tabular-nums text-accent">{row.amount.toString()}</span>
+          <span className="font-mono text-sm font-medium tabular-nums text-accent">{displayAmount(row.amount)}</span>
         )}
         {!row.channelsAgree && <Pill tone="red">undecryptable</Pill>}
       </div>
@@ -329,7 +330,7 @@ function AuditRowView({ row }: { row: AuditRow }) {
         {row.senderBalance !== null && (
           <>
             {" "}
-            · sender&apos;s balance now <span className="text-text-secondary">{row.senderBalance.toString()}</span>
+            · sender&apos;s balance now <span className="text-text-secondary">{displayAmount(row.senderBalance)}</span>
           </>
         )}
       </div>

@@ -19,6 +19,7 @@ import { ProofLoadingOverlay } from "@/components/ui/ProofLoadingOverlay";
 import { useWallet } from "@/lib/wallet-context";
 import { useRequireWallet } from "@/lib/use-require-wallet";
 import { useAction } from "@/lib/use-action";
+import { toBaseUnits } from "@/lib/amount";
 import { errMsg } from "@/lib/err";
 import { DEPLOYMENT } from "@/lib/deployment";
 import { cn } from "@/lib/cn";
@@ -162,7 +163,7 @@ export default function PayrollPage() {
 
   async function confirmExecute() {
     if (!executingRun) return;
-    const payments = executingEmployees.map((employee) => ({ employee, amount: BigInt(salaries[employee] || "0") }));
+    const payments = executingEmployees.map((employee) => ({ employee, amount: toBaseUnits(salaries[employee] || "0") }));
     if (payments.some((p) => p.amount <= 0n)) {
       setError("Every salary must be greater than 0");
       return;
@@ -362,7 +363,7 @@ export default function PayrollPage() {
               <NumericKeypad
                 value={salaries[a] ?? ""}
                 onChange={(v) => setSalaries((s) => ({ ...s, [a]: v }))}
-                unit="XLM"
+                unit="USDC"
               />
             </div>
           ))}

@@ -202,9 +202,9 @@ export default function DocsPage() {
             that needs no proof.
           </P>
           <Pre>{`register    proof  Bind your Grumpkin keys to the contract (one-time)
-deposit     —      Public XLM -> your receiving balance
+deposit     —      Public USDC -> your receiving balance
 merge       —      Fold receiving -> spendable
-withdraw    proof  Spendable -> public XLM
+withdraw    proof  Spendable -> public USDC
 transfer    proof  Spendable -> another account's receiving balance`}</Pre>
           <P>
             Every transfer also emits dual auditor ciphertexts — one for the sender&apos;s channel, one
@@ -215,15 +215,17 @@ transfer    proof  Spendable -> another account's receiving balance`}</Pre>
           <H2 id="deposit-withdraw">Deposit & Withdraw</H2>
           <H3>Deposit</H3>
           <P>
-            Go to <strong>Shield</strong> and deposit. This moves public XLM into your confidential
+            Go to <strong>Shield</strong> and deposit. This moves public USDC into your confidential
             receiving balance at a 1:1 ratio — no proof required, since the deposit commitment has zero
-            blinding. Merge it into spendable before sending or withdrawing.
+            blinding. The deposit amount is a public plaintext <Code>i128</Code> in USDC base units
+            (7 decimals, so 1 USDC = 10,000,000 base units). Merge it into spendable before sending or
+            withdrawing.
           </P>
           <H3>Withdraw</H3>
           <P>
             Withdrawing is a two-step, in-browser flow: a withdraw proof is generated locally (this
             takes a few seconds), then submitted on-chain. The Soroban verifier checks the proof and
-            converts your spendable balance back into public XLM.
+            converts your spendable balance back into public USDC.
           </P>
 
           <H2 id="private-payments">Private Payments</H2>

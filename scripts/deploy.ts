@@ -1,16 +1,17 @@
 /**
- * Deploy the confidential-token demo to Stellar testnet:
+ * Deploy Lucent to Stellar testnet:
  *
- *   1. Ensure the native XLM Stellar Asset Contract exists (the underlying
- *      SEP-41 — chosen because it needs no minting or trustlines).
+ *   1. Use the USDC Stellar Asset Contract as the underlying SEP-41 asset
+ *      (from the UNDERLYING_TOKEN env var).
  *   2. Deploy verifier + auditor + token (constructor wires them together).
  *   3. Register all six circuit verification keys in the verifier.
  *   4. Register one auditor Grumpkin key (id 0).
  *   5. Assert the contract's stored address-as-field equals the SDK's
  *      `addressToField(token)` — the Poseidon2 parity guard.
- *   6. Write deployments/testnet.json.
+ *   6. Deploy PayrollVault + PrivateEscrow factory.
+ *   7. Write deployments/testnet.json (and the app's deployment.json mirror).
  *
- * Usage: pnpm --filter @lucent/sdk exec tsx ../../scripts/deploy.ts
+ * Usage: UNDERLYING_TOKEN=<USDC SAC> pnpm --filter @lucent/sdk exec tsx ../../scripts/deploy.ts
  * Deployer identity: the `admin` key in the stellar CLI config.
  */
 
@@ -18,7 +19,7 @@ import { xdr, Address } from "@stellar/stellar-sdk";
 
 import {
   NETWORK, RPC_URL, PASSPHRASE, WASM, REPO_ROOT,
-  stellar, stellarSoft, publicKey, secret, readVk, saveDeployment, type Deployment,
+  stellar, publicKey, secret, readVk, saveDeployment, type Deployment,
 } from "./_shared.js";
 import { ChainClient, keypairSigner } from "../packages/sdk/src/chain/client.js";
 import { addressToField } from "../packages/sdk/src/crypto/address.js";
@@ -27,6 +28,12 @@ import { H, scalarMul, pointToBytes, pointCoords } from "../packages/sdk/src/cry
 import { CIRCUIT_TYPE } from "../packages/sdk/src/crypto/constants.js";
 
 const DEPLOYER = "admin";
+
+// The underlying SEP-41 asset the confidential token wraps. Must be the USDC
+// Stellar Asset Contract on the target network — derive with:
+//   stellar contract id asset --asset USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5 --network testnet
+const UNDERLYING = process.env.UNDERLYING_TOKEN;
+if (!UNDERLYING) throw new Error("UNDERLYING_TOKEN env var required. Set to USDC SAC address.");
 
 // vk.bin filename → CircuitType discriminant.
 const VK_FILES: ReadonlyArray<[string, number]> = [
@@ -71,10 +78,9 @@ async function main(): Promise<void> {
   const deployerPub = publicKey(DEPLOYER);
   console.log(`deployer ${DEPLOYER} = ${deployerPub}`);
 
-  // 1. Native XLM SAC as the underlying asset.
-  stellarSoft(["contract", "asset", "deploy", "--asset", "native", "--source", DEPLOYER, "--network", NETWORK]);
-  const underlying = stellar(["contract", "id", "asset", "--asset", "native", "--network", NETWORK]);
-  console.log(`underlying (native SAC) = ${underlying}`);
+  // 1. Underlying SEP-41 asset — the USDC SAC, from UNDERLYING_TOKEN.
+  const underlying = UNDERLYING;
+  console.log(`underlying (USDC SAC) = ${underlying}`);
 
   // 2. Deploy registries + token.
   const verifier = deploy(WASM.verifier, ["--admin", deployerPub, "--manager", deployerPub]);

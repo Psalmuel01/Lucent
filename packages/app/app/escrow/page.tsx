@@ -16,6 +16,7 @@ import { ProofLoadingOverlay } from "@/components/ui/ProofLoadingOverlay";
 import { useWallet } from "@/lib/wallet-context";
 import { useRequireWallet } from "@/lib/use-require-wallet";
 import { useAction } from "@/lib/use-action";
+import { toBaseUnits } from "@/lib/amount";
 import { errMsg } from "@/lib/err";
 import { DEPLOYMENT } from "@/lib/deployment";
 import { ESCROW_STATE_LABEL } from "@/lib/format";
@@ -127,7 +128,7 @@ export default function EscrowPage() {
   async function confirmFund() {
     if (!pendingFund || !fundAmount) return;
     await run("fund", async (sp) => {
-      await wallet!.fundEscrow(pendingFund.address, pendingFund.recipient, BigInt(fundAmount), sp);
+      await wallet!.fundEscrow(pendingFund.address, pendingFund.recipient, toBaseUnits(fundAmount), sp);
       setPendingFund(null);
       setFundAmount("");
     });
@@ -235,9 +236,9 @@ export default function EscrowPage() {
 
       <Modal open={pendingFund !== null} onClose={() => setPendingFund(null)} title={`Fund Escrow #${pendingFund?.id.toString() ?? ""}`}>
         <Input
-          label="Amount (XLM)"
+          label="Amount (USDC)"
           value={fundAmount}
-          onChange={(e) => setFundAmount(e.target.value.replace(/[^0-9]/g, ""))}
+          onChange={(e) => setFundAmount(e.target.value.replace(/[^0-9.]/g, ""))}
           className="font-mono"
         />
         <p className="text-xs leading-relaxed text-text-muted">

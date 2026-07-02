@@ -19,8 +19,8 @@ about, and a six-screen app) and a Freighter wallet integration.
 
 ## Features
 
-- **Shield** — deposit public XLM into a confidential balance, merge receiving
-  into spendable, withdraw back to public XLM. Registration binds a Grumpkin
+- **Shield** — deposit public USDC into a confidential balance, merge receiving
+  into spendable, withdraw back to public USDC. Registration binds a Grumpkin
   key set to the account, one time.
 - **Send** — confidential transfers to any registered account. The amount
   never appears in plaintext anywhere on-chain — not in the transaction, not
@@ -62,10 +62,15 @@ folds one into the other homomorphically, with no proof needed.
 | Operation | Proof? | Effect |
 |---|---|---|
 | `register` | ✔ | Bind a Grumpkin key set to the contract (one-time) |
-| `deposit` | — | Public XLM → receiving balance |
+| `deposit` | — | Public USDC → receiving balance |
 | `merge` | — | Receiving → spendable |
-| `withdraw` | ✔ | Spendable → public XLM |
+| `withdraw` | ✔ | Spendable → public USDC |
 | `confidential_transfer` | ✔ | Spendable → another account's receiving balance |
+
+`deposit` is the one public amount: it's a plaintext `i128` argument in USDC
+base units (7 decimals, so 1 USDC = 10,000,000 base units) — deliberately, so
+the on-chain reserve backing the confidential supply is auditable. Every other
+operation hides the amount behind a commitment and a proof.
 
 Every transfer also emits **dual auditor ciphertexts** — one for the sender's
 channel, one for the recipient's — encrypted to the registered auditor's
@@ -175,8 +180,15 @@ cargo test --manifest-path contracts/Cargo.toml
 
 ## Deploying
 
+The confidential token wraps a SEP-41 asset — **USDC**. Point the deploy at
+the USDC Stellar Asset Contract via `UNDERLYING_TOKEN`:
+
 ```bash
-pnpm deploy:contracts
+# Derive the testnet USDC SAC once (issuer GBBD47IF…FLA5):
+stellar contract id asset --asset USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5 --network testnet
+# → CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA
+
+UNDERLYING_TOKEN=CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA pnpm deploy:contracts
 ```
 
 Deploys the full stack — token, verifier, auditor, PayrollVault, and the
@@ -222,14 +234,15 @@ scripts/                         deploy.ts · e2e.ts · e2e-disclosure.ts
 ## Deployed (testnet)
 
 Read from `deployments/testnet.json`, rewritten automatically by
-`pnpm deploy:contracts`:
+`pnpm deploy:contracts`. The stack was cleared for the USDC migration — the
+contract IDs below fill in on the next deploy:
 
 | Contract | ID |
 |---|---|
-| Confidential token | `CBF64DEOVQAXJFBSNGFEUT2AH4H7K5JBY3ZYJ5GVEINMNSDISWRG5N3F` |
-| Verifier | `CDCET36PIS44DWJM5UQSSI4ZHGRDSBIIQW4G4ALPYK3Y6FEQGY5ZWFXL` |
-| Auditor | `CA4II62E35TQKPGHCPBD6EBAS732GSGS6H37UUWKEDHR4YTBVMPHVY4L` |
-| Underlying | native XLM SAC `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` |
+| Underlying | USDC SAC `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA` (issuer `GBBD47IF…FLA5`) |
+| Confidential token | *not yet deployed — run `pnpm deploy:contracts`* |
+| Verifier | *not yet deployed — run `pnpm deploy:contracts`* |
+| Auditor | *not yet deployed — run `pnpm deploy:contracts`* |
 | PayrollVault | *not yet deployed — run `pnpm deploy:contracts`* |
 | PrivateEscrow factory | *not yet deployed — run `pnpm deploy:contracts`* |
 

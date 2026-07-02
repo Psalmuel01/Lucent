@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useWallet } from "@/lib/wallet-context";
 import { useRequireWallet } from "@/lib/use-require-wallet";
 import { useAction } from "@/lib/use-action";
+import { toBaseUnits, formatAmount, displayAmount, DECIMALS } from "@/lib/amount";
 import { cn } from "@/lib/cn";
 
 type Tab = "deposit" | "withdraw";
@@ -46,7 +47,7 @@ export default function ShieldPage() {
   async function deposit() {
     if (!depositAmt) return;
     await run("deposit", async () => {
-      await wallet!.deposit(BigInt(depositAmt));
+      await wallet!.deposit(toBaseUnits(depositAmt));
       setDepositAmt("");
     });
   }
@@ -58,7 +59,7 @@ export default function ShieldPage() {
       { id: "submit", label: "Submit withdrawal", status: "pending" },
     ]);
     await run("withdraw", async (sp) => {
-      await wallet!.withdraw(BigInt(withdrawAmt), (p) => {
+      await wallet!.withdraw(toBaseUnits(withdrawAmt), (p) => {
         sp(p);
         setSteps((s) =>
           s.map((x) =>
@@ -99,7 +100,7 @@ export default function ShieldPage() {
               <div className="text-[11px] uppercase tracking-widest text-text-muted">Spendable</div>
               {view ? (
                 <div className="mt-0.5 font-display text-2xl font-bold tabular-nums text-text-primary">
-                  {spendable.toString()}
+                  {displayAmount(spendable)}
                 </div>
               ) : (
                 <Skeleton className="mt-1 h-7 w-20" />
@@ -109,7 +110,7 @@ export default function ShieldPage() {
               <div className="text-[11px] uppercase tracking-widest text-text-muted">Receiving</div>
               {view ? (
                 <div className="mt-0.5 font-display text-2xl font-bold tabular-nums text-text-primary">
-                  {receiving.toString()}
+                  {displayAmount(receiving)}
                 </div>
               ) : (
                 <Skeleton className="mt-1 h-7 w-20" />
@@ -154,17 +155,30 @@ export default function ShieldPage() {
 
             {tab === "deposit" && (
               <>
+                <GlassCard padding="sm" className="border-accent/20 bg-accent-bg">
+                  <div className="flex items-start gap-3">
+                    <span className="text-accent text-sm">💡</span>
+                    <p className="text-xs text-text-secondary leading-relaxed">
+                      Need testnet USDC?{" "}
+                      <a href="https://faucet.circle.com" target="_blank" rel="noopener noreferrer"
+                         className="text-accent hover:text-accent-hover underline underline-offset-2">
+                        Get some at faucet.circle.com
+                      </a>
+                      {" "}— free, instant, no account required.
+                    </p>
+                  </div>
+                </GlassCard>
                 <GlassCard padding="md">
-                  <NumericKeypad value={depositAmt} onChange={setDepositAmt} unit="XLM" />
+                  <NumericKeypad value={depositAmt} onChange={setDepositAmt} unit="USDC" />
                 </GlassCard>
                 <div className="flex justify-center">
                   <ProofStatusPill status={busy === "deposit" ? "encrypting" : "idle"} />
                 </div>
                 <p className="px-2 text-center text-xs leading-relaxed text-text-muted">
-                  Moves public XLM into your receiving balance at a 1:1 ratio — no proof required.
+                  Moves public USDC into your receiving balance at a 1:1 ratio — no proof required.
                 </p>
                 <Button fullWidth size="lg" isLoading={busy === "deposit"} disabled={!depositAmt} onClick={deposit}>
-                  Deposit {depositAmt || "0"} XLM
+                  Deposit {depositAmt || "0"} USDC
                 </Button>
               </>
             )}
@@ -175,7 +189,7 @@ export default function ShieldPage() {
                   <GlassCard padding="sm" className="border-accent/25">
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-xs text-text-secondary">
-                        You have {receiving.toString()} unmerged — merge before withdrawing more than spendable.
+                        You have {displayAmount(receiving)} unmerged — merge before withdrawing more than spendable.
                       </span>
                       <Button size="sm" variant="secondary" isLoading={busy === "merge"} onClick={() => run("merge", () => wallet!.merge())}>
                         Merge
@@ -187,9 +201,9 @@ export default function ShieldPage() {
                   <NumericKeypad
                     value={withdrawAmt}
                     onChange={setWithdrawAmt}
-                    unit="XLM"
-                    maxValue={spendable.toString()}
-                    onMax={() => setWithdrawAmt(spendable.toString())}
+                    unit="USDC"
+                    maxValue={formatAmount(spendable)}
+                    onMax={() => setWithdrawAmt(formatAmount(spendable, DECIMALS))}
                   />
                 </GlassCard>
                 <div className="flex justify-center">
@@ -201,7 +215,7 @@ export default function ShieldPage() {
                   </GlassCard>
                 )}
                 <Button fullWidth size="lg" isLoading={busy === "withdraw"} disabled={!withdrawAmt} onClick={withdraw}>
-                  Withdraw {withdrawAmt || "0"} XLM
+                  Withdraw {withdrawAmt || "0"} USDC
                 </Button>
               </>
             )}

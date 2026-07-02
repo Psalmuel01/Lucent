@@ -33,6 +33,7 @@ import discloseSenderVk from "@lucent/disclosure/artifacts/disclose_sender.vk.js
 import { DEPLOYMENT } from "@/lib/deployment";
 import { ensureBrowserBackend } from "@/lib/bb-loader";
 import { errMsg } from "@/lib/err";
+import { displayAmount } from "@/lib/amount";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
@@ -171,7 +172,7 @@ export function VerifyPanel() {
         <GlassCard padding="md" className="border-success/40">
           <h3 className="mb-2 font-medium text-success">Disclosure verified ✓</h3>
           <div className="mb-3 font-display text-3xl font-bold tabular-nums text-text-primary">
-            {result.amount.toString()} stroops
+            {displayAmount(result.amount)}
           </div>
           <p className="text-sm text-text-secondary">
             The on-chain transfer <span className="font-mono text-xs">{result.event.txHash.slice(0, 10)}…</span> (ledger{" "}
