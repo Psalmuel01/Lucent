@@ -52,6 +52,7 @@ import {
   // escrow
   submitCreateEscrow,
   parseCreatedEscrow,
+  submitStorePayoutProofs,
   submitFund,
   submitMarkCompleted,
   submitRelease,
@@ -88,6 +89,7 @@ import { DEPLOYMENT } from "./deployment";
 import { connectFreighter } from "./freighter";
 import { keyDerivationMessage, skFromSignature } from "./derive-key";
 import { ensureBrowserBackend } from "./bb-loader";
+import { Address, scValToNative } from "@stellar/stellar-sdk";
 
 type Log = (msg: string) => void;
 type CircuitName = "register" | "withdraw" | "transfer" | "disclose_recipient" | "disclose_sender";
@@ -110,6 +112,7 @@ export interface WalletView {
   receiving: bigint;
   syncedLedger: number;
   matchesChain: boolean | null;
+  publicUSDC: bigint;
 }
 
 export class ConfidentialWallet {
@@ -455,13 +458,18 @@ export class ConfidentialWallet {
     const refundProof = new Uint8Array(encodeTransferData(ref, refProof).bytes());
 
     onPhase?.("submitting");
+    // Two transactions, not one: all four proofs together exceed Soroban's
+    // per-transaction size ceiling (see the contract's `fund` doc comment).
+    this.log("submitting payout proofs…");
+    await submitStorePayoutProofs(this.client, this.signer, instance, {
+      releaseProof,
+      refundProof,
+    });
     this.log("submitting fund…");
     const r = await submitFund(this.client, this.signer, instance, {
       registerData,
       auditorId: DEPLOYMENT.auditorId,
       transferIn,
-      releaseProof,
-      refundProof,
     });
     await this.engine.setSpendable(tin.next);
     this.log(`escrow funded (tx ${r.hash.slice(0, 10)}…)`);
@@ -675,6 +683,18 @@ export class ConfidentialWallet {
     if (onchain) {
       matchesChain = (await this.engine.verifyAgainstChain()).ok;
     }
+    let publicUSDC = 0n;
+    const underlying = DEPLOYMENT.contracts.underlying;
+    if (underlying) {
+      try {
+        const scVal = await this.client.simulate(underlying, "balance", [
+          new Address(this.address).toScVal(),
+        ]);
+        publicUSDC = scValToNative(scVal) as bigint;
+      } catch (e) {
+        this.log(`failed to fetch public USDC balance: ${e}`);
+      }
+    }
     return {
       address: this.address,
       registered: onchain !== null,
@@ -682,6 +702,7 @@ export class ConfidentialWallet {
       receiving: state.receiving.v,
       syncedLedger: state.syncedLedger,
       matchesChain,
+      publicUSDC,
     };
   }
 }

@@ -1,19 +1,20 @@
 "use client";
 
 /**
- * Auditor console (DESIGN.md §8). The auditor persona holds the Grumpkin
- * secret behind auditor id 0 — the id every account in this demo registers
- * under — and decrypts the dual-channel ciphertexts that each transfer and
- * withdraw event carries. Pure key-and-events work: no wallet, no proving,
- * no holder cooperation.
+ * Auditor console (DESIGN.md §8). Whoever holds the auditor's Grumpkin secret
+ * decrypts the dual-channel ciphertexts that each transfer and withdraw event
+ * carries. Pure key-and-events work: no wallet, no proving, no holder
+ * cooperation — just the secret, pasted in.
+ *
+ * The secret never ships in the client bundle: it's typed in here, kept in
+ * component state only (never persisted to storage), and gone the moment you
+ * navigate away or reload. `deploy.ts` redacts it from the app's deployment
+ * file for exactly this reason — see `lib/deployment.ts`.
  *
  * Beyond per-event amounts, the page replays the event stream into the
  * auditor's running view of every account (§8.1/§8.2): spendable balance from
  * the sender-channel checkpoints, receiving balance as the sum of decrypted
  * inbound transfers plus public deposits, folded on merge.
- *
- * ⚠️ The secret key is shipped in the client bundle ON PURPOSE so anyone can
- * play this persona. Real deployments keep it far away from a browser.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -33,14 +34,14 @@ import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 import { Pill, type PillTone } from "@/components/ui/Pill";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { displayAmount } from "@/lib/amount";
 import { DEPLOYMENT } from "@/lib/deployment";
 import { errMsg } from "@/lib/err";
-import { CopyButton } from "../copy-button";
-
-const AUDITOR_SK = fromHex(DEPLOYMENT.auditorSecretHex);
+import { ErrorBanner } from "@/components/ui/ErrorBanner";
 
 /** One decrypted line of the auditor's ledger. */
 interface AuditRow {
@@ -64,7 +65,7 @@ interface AccountView {
   lastLedger: number;
 }
 
-function replay(events: ConfidentialEvent[]): { rows: AuditRow[]; accounts: AccountView[] } {
+function replay(events: ConfidentialEvent[], auditorSk: bigint): { rows: AuditRow[]; accounts: AccountView[] } {
   const rows: AuditRow[] = [];
   const accounts = new Map<string, AccountView>();
   const acct = (address: string): AccountView => {
@@ -116,7 +117,7 @@ function replay(events: ConfidentialEvent[]): { rows: AuditRow[]; accounts: Acco
       }
       case "withdraw": {
         const a = seen(ev.from, ev.ledger);
-        const { senderBalance } = auditWithdraw(AUDITOR_SK, ev);
+        const { senderBalance } = auditWithdraw(auditorSk, ev);
         a.spendable = senderBalance;
         rows.push({
           ev,
@@ -130,7 +131,7 @@ function replay(events: ConfidentialEvent[]): { rows: AuditRow[]; accounts: Acco
       case "transfer": {
         const from = seen(ev.from, ev.ledger);
         const to = seen(ev.to, ev.ledger);
-        const d = auditTransfer(AUDITOR_SK, ev);
+        const d = auditTransfer(auditorSk, ev);
         if (d.channelsAgree) {
           from.spendable = d.senderBalance;
           to.receiving += d.amount;
@@ -156,15 +157,36 @@ function replay(events: ConfidentialEvent[]): { rows: AuditRow[]; accounts: Acco
 }
 
 export default function AuditorPage() {
+  const [secretInput, setSecretInput] = useState("");
+  const [auditorSk, setAuditorSk] = useState<bigint | null>(null);
+  const [keyError, setKeyError] = useState<string | null>(null);
+
   const [rows, setRows] = useState<AuditRow[] | null>(null);
   const [accounts, setAccounts] = useState<AccountView[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const kAud = pointCoords(auditorPublicKey(AUDITOR_SK));
   const hasIndexer = !!DEPLOYMENT.indexerUrl;
 
-  const load = useCallback(async () => {
+  function unlock() {
+    setKeyError(null);
+    try {
+      const sk = fromHex(secretInput.trim());
+      setAuditorSk(sk);
+    } catch {
+      setKeyError("Not a valid hex secret key (expected a 0x… 32-byte scalar).");
+    }
+  }
+
+  function lock() {
+    setAuditorSk(null);
+    setSecretInput("");
+    setRows(null);
+    setAccounts([]);
+    setError(null);
+  }
+
+  const load = useCallback(async (sk: bigint) => {
     setBusy(true);
     setError(null);
     try {
@@ -182,7 +204,7 @@ export default function AuditorPage() {
       const { events } = await hybridFetchEvents(client, indexer, {
         fromLedger: DEPLOYMENT.deployedAtLedger,
       });
-      const result = replay(events);
+      const result = replay(events, sk);
       setRows(result.rows);
       setAccounts(result.accounts);
     } catch (e) {
@@ -193,8 +215,10 @@ export default function AuditorPage() {
   }, []);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (auditorSk !== null) void load(auditorSk);
+  }, [auditorSk, load]);
+
+  const kAud = auditorSk !== null ? pointCoords(auditorPublicKey(auditorSk)) : null;
 
   return (
     <AppShell>
@@ -202,102 +226,129 @@ export default function AuditorPage() {
 
       <div className="flex flex-col gap-5 px-4 pb-8 md:mx-auto md:max-w-2xl md:px-8">
         <p className="text-sm leading-relaxed text-text-secondary">
-          You are the designated auditor for this deployment: every account registers under your
-          auditor id. Amounts that everyone else sees as a commitment, you read in cleartext — each
-          transfer and withdrawal carries ciphertexts addressed to your key. No wallet, no proofs, and
-          no account cooperation required.
+          Whoever holds a registered auditor's Grumpkin secret decrypts every transfer and withdrawal
+          addressed to that key — no wallet, no proofs, no account cooperation required. The key you
+          paste below never leaves this browser tab: it's held in memory only, never written to
+          storage, and gone the moment you lock the console or reload.
         </p>
 
-        <GlassCard padding="md" className="border-accent/25">
-          <SectionLabel>Auditor Console</SectionLabel>
-          <h3 className="mb-1 mt-3 text-sm font-semibold text-accent">Your auditor key (id {DEPLOYMENT.auditorId})</h3>
-          <p className="mb-3 text-xs text-text-muted">
-            Demo-only: this secret ships with the app so anyone can take the auditor role. In a real
-            deployment it lives in the auditor&apos;s vault and only the public key{" "}
-            <code className="rounded bg-white/[0.07] px-1 py-0.5 font-mono text-[0.85em] text-accent/90">K_aud = k·H</code> is
-            registered on-chain.
-          </p>
-          <dl className="space-y-1 break-all font-mono text-xs text-text-secondary">
-            <div>
-              <dt className="inline text-text-muted">secret k: </dt>
-              <dd className="inline">{DEPLOYMENT.auditorSecretHex}</dd>{" "}
-              <CopyButton label="Copy" payload={() => DEPLOYMENT.auditorSecretHex} />
+        {auditorSk === null ? (
+          <GlassCard padding="md" className="border-accent/25">
+            <SectionLabel>Unlock Console</SectionLabel>
+            <p className="mb-3 mt-3 text-xs text-text-muted">
+              Paste your auditor secret key (the <code className="rounded bg-white/[0.07] px-1 py-0.5 font-mono text-[0.85em] text-accent/90">k</code> whose
+              public point <code className="rounded bg-white/[0.07] px-1 py-0.5 font-mono text-[0.85em] text-accent/90">K_aud = k·H</code> was
+              registered on-chain) to decrypt with it.
+            </p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="flex-1">
+                <Input
+                  label="Auditor secret key"
+                  placeholder="0x…"
+                  value={secretInput}
+                  onChange={(e) => setSecretInput(e.target.value)}
+                  error={keyError ?? undefined}
+                  className="font-mono"
+                />
+              </div>
+              <Button onClick={unlock} disabled={!secretInput.trim()}>
+                Unlock
+              </Button>
             </div>
-            <div>
-              <dt className="inline text-text-muted">K_aud.x: </dt>
-              <dd className="inline">{toHex32(kAud.x)}</dd>
-            </div>
-            <div>
-              <dt className="inline text-text-muted">K_aud.y: </dt>
-              <dd className="inline">{toHex32(kAud.y)}</dd>
-            </div>
-          </dl>
-        </GlassCard>
+          </GlassCard>
+        ) : (
+          <>
+            <GlassCard padding="md" className="border-accent/25">
+              <div className="mb-1 mt-0 flex items-center justify-between">
+                <SectionLabel>Auditor Console</SectionLabel>
+                <Button size="sm" variant="ghost" onClick={lock}>
+                  Lock
+                </Button>
+              </div>
+              <p className="mb-3 mt-3 text-xs text-text-muted">
+                Console unlocked with the key you pasted in. Only <code className="rounded bg-white/[0.07] px-1 py-0.5 font-mono text-[0.85em] text-accent/90">K_aud</code> —
+                the public point — is shown below; the secret itself is never redisplayed.
+              </p>
+              {kAud && (
+                <dl className="space-y-1 break-all font-mono text-xs text-text-secondary">
+                  <div>
+                    <dt className="inline text-text-muted">K_aud.x: </dt>
+                    <dd className="inline">{toHex32(kAud.x)}</dd>
+                  </div>
+                  <div>
+                    <dt className="inline text-text-muted">K_aud.y: </dt>
+                    <dd className="inline">{toHex32(kAud.y)}</dd>
+                  </div>
+                </dl>
+              )}
+            </GlassCard>
 
-        <GlassCard padding="md">
-          <div className="mb-1 flex items-center justify-between">
-            <h3 className="font-semibold text-text-primary">Accounts as you see them</h3>
-            <Button size="sm" variant="secondary" isLoading={busy} onClick={load}>
-              Reload
-            </Button>
-          </div>
-          <p className="mb-3 text-xs text-text-muted">
-            Reconstructed from sender-channel balance checkpoints and decrypted inbound credits.{" "}
-            {hasIndexer
-              ? "Backed by the Goldsky indexer, so the full deployment history is decrypted."
-              : "Only events inside the RPC's ~7-day retention window are available — accounts with older history may be incomplete."}
-          </p>
-          {accounts.length === 0 && !busy && (
-            <p className="text-sm text-text-muted">No accounts in the retention window.</p>
-          )}
-          {busy && accounts.length === 0 && (
-            <div className="flex flex-col gap-2">
-              <Skeleton className="h-6 w-full" />
-              <Skeleton className="h-6 w-full" />
-            </div>
-          )}
-          {accounts.length > 0 && (
-            <table className="w-full text-left text-xs">
-              <thead className="text-text-muted">
-                <tr>
-                  <th className="pb-2 font-normal">account</th>
-                  <th className="pb-2 font-normal">spendable</th>
-                  <th className="pb-2 font-normal">receiving</th>
-                  <th className="pb-2 font-normal">last seen</th>
-                </tr>
-              </thead>
-              <tbody className="text-text-secondary">
-                {accounts.map((a) => (
-                  <tr key={a.address} className="border-t border-border">
-                    <td className="py-1.5 font-mono">{shortAddr(a.address)}</td>
-                    <td className="py-1.5 font-mono tabular-nums text-text-primary">{a.spendable === null ? "?" : a.spendable.toString()}</td>
-                    <td className="py-1.5 font-mono tabular-nums text-text-primary">{a.receiving.toString()}</td>
-                    <td className="py-1.5 text-text-muted">ledger {a.lastLedger}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </GlassCard>
+            <GlassCard padding="md">
+              <div className="mb-1 flex items-center justify-between">
+                <h3 className="font-semibold text-text-primary">Accounts as you see them</h3>
+                <Button size="sm" variant="secondary" isLoading={busy} onClick={() => load(auditorSk)}>
+                  Reload
+                </Button>
+              </div>
+              <p className="mb-3 text-xs text-text-muted">
+                Reconstructed from sender-channel balance checkpoints and decrypted inbound credits.{" "}
+                {hasIndexer
+                  ? "Backed by the Goldsky indexer, so the full deployment history is decrypted."
+                  : "Only events inside the RPC's ~7-day retention window are available — accounts with older history may be incomplete."}
+              </p>
+              {accounts.length === 0 && !busy && (
+                <p className="text-sm text-text-muted">No accounts in the retention window.</p>
+              )}
+              {busy && accounts.length === 0 && (
+                <div className="flex flex-col gap-2">
+                  <Skeleton className="h-6 w-full" />
+                  <Skeleton className="h-6 w-full" />
+                </div>
+              )}
+              {accounts.length > 0 && (
+                <table className="w-full text-left text-xs">
+                  <thead className="text-text-muted">
+                    <tr>
+                      <th className="pb-2 font-normal">account</th>
+                      <th className="pb-2 font-normal">spendable</th>
+                      <th className="pb-2 font-normal">receiving</th>
+                      <th className="pb-2 font-normal">last seen</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-text-secondary">
+                    {accounts.map((a) => (
+                      <tr key={a.address} className="border-t border-border">
+                        <td className="py-1.5 font-mono">{shortAddr(a.address)}</td>
+                        <td className="py-1.5 font-mono tabular-nums text-text-primary">{a.spendable === null ? "?" : displayAmount(a.spendable)}</td>
+                        <td className="py-1.5 font-mono tabular-nums text-text-primary">{displayAmount(a.receiving)}</td>
+                        <td className="py-1.5 text-text-muted">ledger {a.lastLedger}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </GlassCard>
 
-        <GlassCard padding="md">
-          <h3 className="mb-1 font-semibold text-text-primary">Decrypted activity</h3>
-          <p className="mb-3 text-xs text-text-muted">
-            Every token-contract event {hasIndexer ? "since deployment" : "in the retention window"},
-            newest first. Amounts every other screen shows encrypted appear here in cleartext —
-            decrypted with your key alone.
-          </p>
-          {error && <p className="mb-3 rounded-xl border border-error/30 bg-error/10 p-3 text-xs text-error">{error}</p>}
-          {!rows && busy && <p className="text-sm text-text-muted">Syncing events…</p>}
-          {rows && rows.length === 0 && <p className="text-sm text-text-muted">No activity in the retention window.</p>}
-          {rows && (
-            <ul className="flex flex-col gap-2">
-              {rows.map((row) => (
-                <AuditRowView key={row.ev.cursor} row={row} />
-              ))}
-            </ul>
-          )}
-        </GlassCard>
+            <GlassCard padding="md">
+              <h3 className="mb-1 font-semibold text-text-primary">Decrypted activity</h3>
+              <p className="mb-3 text-xs text-text-muted">
+                Every token-contract event {hasIndexer ? "since deployment" : "in the retention window"},
+                newest first. Amounts every other screen shows encrypted appear here in cleartext —
+                decrypted with your key alone.
+              </p>
+              <ErrorBanner error={error} onDismiss={() => setError(null)} className="mb-3" size="sm" />
+              {!rows && busy && <p className="text-sm text-text-muted">Syncing events…</p>}
+              {rows && rows.length === 0 && <p className="text-sm text-text-muted">No activity in the retention window.</p>}
+              {rows && (
+                <ul className="flex flex-col gap-2">
+                  {rows.map((row) => (
+                    <AuditRowView key={row.ev.cursor} row={row} />
+                  ))}
+                </ul>
+              )}
+            </GlassCard>
+          </>
+        )}
 
         <footer className="font-mono text-xs text-text-muted">
           auditor contract {shortAddr(DEPLOYMENT.contracts.auditor)} · token {shortAddr(DEPLOYMENT.contracts.token)}
@@ -320,7 +371,7 @@ function AuditRowView({ row }: { row: AuditRow }) {
         <span className="font-mono text-xs text-text-muted">{parties}</span>
         <span className="flex-1" />
         {row.amount !== null && (
-          <span className="font-mono text-sm font-medium tabular-nums text-accent">{row.amount.toString()}</span>
+          <span className="font-mono text-sm font-medium tabular-nums text-accent">{displayAmount(row.amount)}</span>
         )}
         {!row.channelsAgree && <Pill tone="red">undecryptable</Pill>}
       </div>
@@ -329,12 +380,20 @@ function AuditRowView({ row }: { row: AuditRow }) {
         {row.senderBalance !== null && (
           <>
             {" "}
-            · sender&apos;s balance now <span className="text-text-secondary">{row.senderBalance.toString()}</span>
+            · sender&apos;s balance now <span className="text-text-secondary">{displayAmount(row.senderBalance)}</span>
           </>
         )}
       </div>
       <div className="mt-1 text-xs text-text-muted/70">
-        ledger {ev.ledger} · tx <span className="font-mono">{ev.txHash.slice(0, 10)}…</span>
+        ledger {ev.ledger} · tx{" "}
+        <a
+          href={`https://stellar.expert/explorer/testnet/tx/${ev.txHash}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-mono text-accent/40 hover:text-accent-hover/50 hover:underline"
+        >
+          {ev.txHash.slice(0, 10)}…
+        </a>
       </div>
     </li>
   );

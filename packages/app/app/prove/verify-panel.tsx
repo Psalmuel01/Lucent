@@ -33,6 +33,7 @@ import discloseSenderVk from "@lucent/disclosure/artifacts/disclose_sender.vk.js
 import { DEPLOYMENT } from "@/lib/deployment";
 import { ensureBrowserBackend } from "@/lib/bb-loader";
 import { errMsg } from "@/lib/err";
+import { displayAmount } from "@/lib/amount";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
@@ -162,20 +163,28 @@ export function VerifyPanel() {
 
       {error && (
         <GlassCard padding="md" className="border-error/40">
-          <h3 className="mb-1 font-medium text-error">Rejected at: {error.stage}</h3>
+          <h3 className="mb-1 text-md font-medium text-error">Rejected at: {error.stage}</h3>
           <p className="text-sm text-error/90">{error.message}</p>
         </GlassCard>
       )}
 
       {result && (
         <GlassCard padding="md" className="border-success/40">
-          <h3 className="mb-2 font-medium text-success">Disclosure verified ✓</h3>
-          <div className="mb-3 font-display text-3xl font-bold tabular-nums text-text-primary">
-            {result.amount.toString()} stroops
+          <h3 className="mb-2 font-medium text-md text-success">Disclosure verified ✓</h3>
+          <div className="mb-3 font-display text-xl font-bold tabular-nums text-text-primary">
+            {displayAmount(result.amount)}
           </div>
           <p className="text-sm text-text-secondary">
-            The on-chain transfer <span className="font-mono text-xs">{result.event.txHash.slice(0, 10)}…</span> (ledger{" "}
-            {result.event.ledger}){" "}
+            The on-chain transfer{" "}
+            <a
+              href={`https://stellar.expert/explorer/testnet/tx/${result.event.txHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-mono text-xs text-accent/40 hover:text-accent-hover/50 hover:underline"
+            >
+              {result.event.txHash.slice(0, 10)}…
+            </a>{" "}
+            (ledger {result.event.ledger}){" "}
             {result.role === "recipient" ? "paid" : "was sent by"}{" "}
             <span className="font-mono text-xs">{result.disclosingAccount.slice(0, 8)}…</span> exactly this amount. You
             learned nothing else.

@@ -14,14 +14,16 @@ import { ProofLoadingOverlay } from "@/components/ui/ProofLoadingOverlay";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useWallet } from "@/lib/wallet-context";
 import { useRequireWallet } from "@/lib/use-require-wallet";
+import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { useAction } from "@/lib/use-action";
+import { toBaseUnits, formatAmount, displayAmount, DECIMALS } from "@/lib/amount";
 import { cn } from "@/lib/cn";
 
 type Tab = "deposit" | "withdraw";
 
 export default function ShieldPage() {
   const wallet = useRequireWallet();
-  const { view, error } = useWallet();
+  const { view, error, setError } = useWallet();
   const { run, busy, phase } = useAction();
   const [tab, setTab] = useState<Tab>("deposit");
   const [depositAmt, setDepositAmt] = useState("");
@@ -33,6 +35,7 @@ export default function ShieldPage() {
   const registered = view?.registered ?? false;
   const receiving = view?.receiving ?? 0n;
   const spendable = view?.spendable ?? 0n;
+  const publicUSDC = view?.publicUSDC ?? 0n;
 
   async function register() {
     setSteps([{ id: "register", label: "Prove key ownership", status: "active", estSeconds: 4 }]);
@@ -46,7 +49,7 @@ export default function ShieldPage() {
   async function deposit() {
     if (!depositAmt) return;
     await run("deposit", async () => {
-      await wallet!.deposit(BigInt(depositAmt));
+      await wallet!.deposit(toBaseUnits(depositAmt));
       setDepositAmt("");
     });
   }
@@ -58,7 +61,7 @@ export default function ShieldPage() {
       { id: "submit", label: "Submit withdrawal", status: "pending" },
     ]);
     await run("withdraw", async (sp) => {
-      await wallet!.withdraw(BigInt(withdrawAmt), (p) => {
+      await wallet!.withdraw(toBaseUnits(withdrawAmt), (p) => {
         sp(p);
         setSteps((s) =>
           s.map((x) =>
@@ -90,7 +93,7 @@ export default function ShieldPage() {
         transition={{ duration: 0.3 }}
         className="flex flex-col gap-5 px-4 pb-6 md:mx-auto md:max-w-2xl md:px-8"
       >
-        {error && <p className="rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</p>}
+        <ErrorBanner error={error} onDismiss={() => setError(null)} />
 
         {/* Balances */}
         <GlassCard padding="md">
@@ -99,7 +102,7 @@ export default function ShieldPage() {
               <div className="text-[11px] uppercase tracking-widest text-text-muted">Spendable</div>
               {view ? (
                 <div className="mt-0.5 font-display text-2xl font-bold tabular-nums text-text-primary">
-                  {spendable.toString()}
+                  {displayAmount(spendable)}
                 </div>
               ) : (
                 <Skeleton className="mt-1 h-7 w-20" />
@@ -109,7 +112,7 @@ export default function ShieldPage() {
               <div className="text-[11px] uppercase tracking-widest text-text-muted">Receiving</div>
               {view ? (
                 <div className="mt-0.5 font-display text-2xl font-bold tabular-nums text-text-primary">
-                  {receiving.toString()}
+                  {displayAmount(receiving)}
                 </div>
               ) : (
                 <Skeleton className="mt-1 h-7 w-20" />
@@ -154,17 +157,36 @@ export default function ShieldPage() {
 
             {tab === "deposit" && (
               <>
+                <GlassCard padding="sm" className="border-accent/20 bg-accent-bg">
+                  <div className="flex items-start gap-3">
+                    <span className="text-accent text-sm">💡</span>
+                    <p className="text-xs text-text-secondary leading-relaxed">
+                      Need testnet USDC?{" "}
+                      <a href="https://faucet.circle.com" target="_blank" rel="noopener noreferrer"
+                         className="text-accent hover:text-accent-hover underline underline-offset-2">
+                        Get some at faucet.circle.com
+                      </a>
+                      {" "}— free, instant, no account required.
+                    </p>
+                  </div>
+                </GlassCard>
                 <GlassCard padding="md">
-                  <NumericKeypad value={depositAmt} onChange={setDepositAmt} unit="XLM" />
+                  <NumericKeypad
+                    value={depositAmt}
+                    onChange={setDepositAmt}
+                    unit="USDC"
+                    maxValue={formatAmount(publicUSDC)}
+                    onMax={() => setDepositAmt(formatAmount(publicUSDC, DECIMALS))}
+                  />
                 </GlassCard>
                 <div className="flex justify-center">
                   <ProofStatusPill status={busy === "deposit" ? "encrypting" : "idle"} />
                 </div>
                 <p className="px-2 text-center text-xs leading-relaxed text-text-muted">
-                  Moves public XLM into your receiving balance at a 1:1 ratio — no proof required.
+                  Moves public USDC into your receiving balance at a 1:1 ratio — no proof required.
                 </p>
                 <Button fullWidth size="lg" isLoading={busy === "deposit"} disabled={!depositAmt} onClick={deposit}>
-                  Deposit {depositAmt || "0"} XLM
+                  Deposit {depositAmt || "0"} USDC
                 </Button>
               </>
             )}
@@ -175,7 +197,7 @@ export default function ShieldPage() {
                   <GlassCard padding="sm" className="border-accent/25">
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-xs text-text-secondary">
-                        You have {receiving.toString()} unmerged — merge before withdrawing more than spendable.
+                        You have {displayAmount(receiving)} unmerged — merge before withdrawing more than spendable.
                       </span>
                       <Button size="sm" variant="secondary" isLoading={busy === "merge"} onClick={() => run("merge", () => wallet!.merge())}>
                         Merge
@@ -187,9 +209,9 @@ export default function ShieldPage() {
                   <NumericKeypad
                     value={withdrawAmt}
                     onChange={setWithdrawAmt}
-                    unit="XLM"
-                    maxValue={spendable.toString()}
-                    onMax={() => setWithdrawAmt(spendable.toString())}
+                    unit="USDC"
+                    maxValue={formatAmount(spendable)}
+                    onMax={() => setWithdrawAmt(formatAmount(spendable, DECIMALS))}
                   />
                 </GlassCard>
                 <div className="flex justify-center">
@@ -201,7 +223,7 @@ export default function ShieldPage() {
                   </GlassCard>
                 )}
                 <Button fullWidth size="lg" isLoading={busy === "withdraw"} disabled={!withdrawAmt} onClick={withdraw}>
-                  Withdraw {withdrawAmt || "0"} XLM
+                  Withdraw {withdrawAmt || "0"} USDC
                 </Button>
               </>
             )}

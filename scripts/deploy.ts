@@ -1,16 +1,17 @@
 /**
- * Deploy the confidential-token demo to Stellar testnet:
+ * Deploy Lucent to Stellar testnet:
  *
- *   1. Ensure the native XLM Stellar Asset Contract exists (the underlying
- *      SEP-41 — chosen because it needs no minting or trustlines).
+ *   1. Use the USDC Stellar Asset Contract as the underlying SEP-41 asset
+ *      (from the UNDERLYING_TOKEN env var).
  *   2. Deploy verifier + auditor + token (constructor wires them together).
  *   3. Register all six circuit verification keys in the verifier.
  *   4. Register one auditor Grumpkin key (id 0).
  *   5. Assert the contract's stored address-as-field equals the SDK's
  *      `addressToField(token)` — the Poseidon2 parity guard.
- *   6. Write deployments/testnet.json.
+ *   6. Deploy PayrollVault + PrivateEscrow factory.
+ *   7. Write deployments/testnet.json (and the app's deployment.json mirror).
  *
- * Usage: pnpm --filter @lucent/sdk exec tsx ../../scripts/deploy.ts
+ * Usage: UNDERLYING_TOKEN=<USDC SAC> pnpm --filter @lucent/sdk exec tsx ../../scripts/deploy.ts
  * Deployer identity: the `admin` key in the stellar CLI config.
  */
 
@@ -18,7 +19,7 @@ import { xdr, Address } from "@stellar/stellar-sdk";
 
 import {
   NETWORK, RPC_URL, PASSPHRASE, WASM, REPO_ROOT,
-  stellar, stellarSoft, publicKey, secret, readVk, saveDeployment, type Deployment,
+  publicKey, secret, readVk, saveDeployment, deploy, uploadWasm, type Deployment,
 } from "./_shared.js";
 import { ChainClient, keypairSigner } from "../packages/sdk/src/chain/client.js";
 import { addressToField } from "../packages/sdk/src/crypto/address.js";
@@ -27,6 +28,12 @@ import { H, scalarMul, pointToBytes, pointCoords } from "../packages/sdk/src/cry
 import { CIRCUIT_TYPE } from "../packages/sdk/src/crypto/constants.js";
 
 const DEPLOYER = "admin";
+
+// The underlying SEP-41 asset the confidential token wraps. Must be the USDC
+// Stellar Asset Contract on the target network — derive with:
+//   stellar contract id asset --asset USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5 --network testnet
+const UNDERLYING = process.env.UNDERLYING_TOKEN;
+if (!UNDERLYING) throw new Error("UNDERLYING_TOKEN env var required. Set to USDC SAC address.");
 
 // vk.bin filename → CircuitType discriminant.
 const VK_FILES: ReadonlyArray<[string, number]> = [
@@ -38,48 +45,18 @@ const VK_FILES: ReadonlyArray<[string, number]> = [
   ["revoke_spender", CIRCUIT_TYPE.RevokeSpender],
 ];
 
-function deploy(wasmPath: string, ctorArgs: string[]): string {
-  const out = stellar([
-    "contract", "deploy",
-    "--wasm", wasmPath,
-    "--source", DEPLOYER,
-    "--network", NETWORK,
-    "--optimize=false",
-    "--", ...ctorArgs,
-  ]);
-  // The contract id is the last non-empty line of stdout.
-  const id = out.split(/\s+/).filter(Boolean).pop()!;
-  if (!id.startsWith("C")) throw new Error(`unexpected deploy output: ${out}`);
-  return id;
-}
-
-/** Upload a wasm (no instance) and return its hex hash — used for the escrow factory. */
-function uploadWasm(wasmPath: string): string {
-  const out = stellar([
-    "contract", "upload",
-    "--wasm", wasmPath,
-    "--source", DEPLOYER,
-    "--network", NETWORK,
-    "--optimize=false",
-  ]);
-  const hash = out.split(/\s+/).filter(Boolean).pop()!;
-  if (!/^[0-9a-f]{64}$/i.test(hash)) throw new Error(`unexpected upload output: ${out}`);
-  return hash;
-}
-
 async function main(): Promise<void> {
   const deployerPub = publicKey(DEPLOYER);
   console.log(`deployer ${DEPLOYER} = ${deployerPub}`);
 
-  // 1. Native XLM SAC as the underlying asset.
-  stellarSoft(["contract", "asset", "deploy", "--asset", "native", "--source", DEPLOYER, "--network", NETWORK]);
-  const underlying = stellar(["contract", "id", "asset", "--asset", "native", "--network", NETWORK]);
-  console.log(`underlying (native SAC) = ${underlying}`);
+  // 1. Underlying SEP-41 asset — the USDC SAC, from UNDERLYING_TOKEN.
+  const underlying = UNDERLYING;
+  console.log(`underlying (USDC SAC) = ${underlying}`);
 
   // 2. Deploy registries + token.
-  const verifier = deploy(WASM.verifier, ["--admin", deployerPub, "--manager", deployerPub]);
+  const verifier = deploy(WASM.verifier, DEPLOYER, ["--admin", deployerPub, "--manager", deployerPub]);
   console.log(`verifier = ${verifier}`);
-  const auditor = deploy(WASM.auditor, ["--admin", deployerPub, "--manager", deployerPub]);
+  const auditor = deploy(WASM.auditor, DEPLOYER, ["--admin", deployerPub, "--manager", deployerPub]);
   console.log(`auditor = ${auditor}`);
 
   const client = new ChainClient({
@@ -89,7 +66,7 @@ async function main(): Promise<void> {
   });
   const ledgerBeforeToken = await client.latestLedger();
 
-  const token = deploy(WASM.token, [
+  const token = deploy(WASM.token, DEPLOYER, [
     "--underlying_asset", underlying,
     "--verifier", verifier,
     "--auditor", auditor,
@@ -148,11 +125,11 @@ async function main(): Promise<void> {
   // 6. Lucent contracts. PayrollVault orchestrates transfers through the token;
   //    the PrivateEscrow factory deploys one instance per escrow, so its
   //    instance wasm is uploaded first and the factory is bound to that hash.
-  const payroll = deploy(WASM.payroll, ["--token", token]);
+  const payroll = deploy(WASM.payroll, DEPLOYER, ["--token", token]);
   console.log(`payroll = ${payroll}`);
-  const escrowInstanceWasm = uploadWasm(WASM.escrowInstance);
+  const escrowInstanceWasm = uploadWasm(WASM.escrowInstance, DEPLOYER);
   console.log(`escrow instance wasm = ${escrowInstanceWasm}`);
-  const escrowFactory = deploy(WASM.escrowFactory, [
+  const escrowFactory = deploy(WASM.escrowFactory, DEPLOYER, [
     "--token", token,
     "--instance_wasm", escrowInstanceWasm,
   ]);

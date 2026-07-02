@@ -19,9 +19,11 @@ import { ProofLoadingOverlay } from "@/components/ui/ProofLoadingOverlay";
 import { useWallet } from "@/lib/wallet-context";
 import { useRequireWallet } from "@/lib/use-require-wallet";
 import { useAction } from "@/lib/use-action";
+import { toBaseUnits } from "@/lib/amount";
 import { errMsg } from "@/lib/err";
 import { DEPLOYMENT } from "@/lib/deployment";
 import { cn } from "@/lib/cn";
+import { ErrorBanner } from "@/components/ui/ErrorBanner";
 
 type TopTab = "employer" | "employee";
 type EmployerTab = "templates" | "runs";
@@ -162,7 +164,7 @@ export default function PayrollPage() {
 
   async function confirmExecute() {
     if (!executingRun) return;
-    const payments = executingEmployees.map((employee) => ({ employee, amount: BigInt(salaries[employee] || "0") }));
+    const payments = executingEmployees.map((employee) => ({ employee, amount: toBaseUnits(salaries[employee] || "0") }));
     if (payments.some((p) => p.amount <= 0n)) {
       setError("Every salary must be greater than 0");
       return;
@@ -199,7 +201,7 @@ export default function PayrollPage() {
       />
 
       <div className="flex flex-col gap-5 px-4 pb-24 md:mx-auto md:max-w-2xl md:px-8 md:pb-8">
-        {error && <p className="rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</p>}
+        <ErrorBanner error={error} onDismiss={() => setError(null)} />
 
         <div className="flex gap-2 rounded-2xl border border-border bg-card p-1">
           {(["employer", "employee"] as TopTab[]).map((t) => (
@@ -362,7 +364,7 @@ export default function PayrollPage() {
               <NumericKeypad
                 value={salaries[a] ?? ""}
                 onChange={(v) => setSalaries((s) => ({ ...s, [a]: v }))}
-                unit="XLM"
+                unit="USDC"
               />
             </div>
           ))}

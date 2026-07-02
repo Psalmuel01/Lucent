@@ -11,8 +11,8 @@ import { useWallet } from "@/lib/wallet-context";
 const STEPS = [
   {
     num: "01",
-    title: "Deposit XLM",
-    desc: "Move public XLM into a confidential balance in one transaction. From then on your balance is a Pedersen commitment, not a number.",
+    title: "Deposit USDC",
+    desc: "Move public USDC into a confidential balance in one transaction. From then on your balance is a Pedersen commitment, not a number.",
     icon: ArrowDownUp,
   },
   {

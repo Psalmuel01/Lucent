@@ -14,6 +14,7 @@
     "build:contracts": "bash scripts/build-contracts.sh",
     "build:disclosure": "pnpm --filter @lucent/sdk exec node ../../scripts/build-disclosure.mjs",
     "deploy:contracts": "pnpm --filter @lucent/sdk exec tsx ../../scripts/deploy.ts",
+    "deploy:escrow": "pnpm --filter @lucent/sdk exec tsx ../../scripts/deploy-escrow.ts",
     "deploy:app": "pnpm --filter @lucent/app run deploy:cf",
     "e2e": "pnpm --filter @lucent/sdk exec tsx ../../scripts/e2e.ts",
     "e2e:disclosure": "pnpm --filter @lucent/sdk exec tsx ../../scripts/e2e-disclosure.ts"

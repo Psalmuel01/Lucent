@@ -7,25 +7,45 @@ interface Props extends SVGProps<SVGSVGElement> {
   showBg?: boolean;
 }
 
-/** Sparkle / radiance mark — a four-point star of light, for "Lucent" (shining, luminous). */
 export function LucentLogoMark({ size = 32, showBg = true, ...props }: Props) {
+  const r = size * 0.42;
+  const cx = size / 2;
+  const cy = size / 2;
+  const ri = r * 0.62;
+  const rc = r * 0.18;
+  const bgColor = showBg ? "#080808" : "transparent";
+
   return (
     <svg
       width={size}
       height={size}
-      viewBox="0 0 48 48"
+      viewBox={`0 0 ${size} ${size}`}
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
-      {showBg && <rect width="48" height="48" rx="12" fill="#080808" />}
-      {/* Primary sparkle */}
+      {showBg && <rect width={size} height={size} rx={size * 0.25} fill={bgColor} />}
+      {/* Full circle base */}
+      <circle cx={cx} cy={cy} r={r} fill="#000000" />
+      {/* Right half revealed in yellow */}
       <path
-        d="M25.5 6 L28.6 20.4 L42 24 L28.6 27.6 L25.5 42 L22.4 27.6 L9 24 L22.4 20.4 Z"
+        d={`M${cx} ${cy - r} A${r} ${r} 0 0 1 ${cx} ${cy + r} Z`}
         fill="#FBBF24"
       />
-      {/* Companion glint, upper-right */}
-      <path d="M36 8 L37.4 12.6 L42 14 L37.4 15.4 L36 20 L34.6 15.4 L30 14 L34.6 12.6 Z" fill="#FBBF24" />
+      {/* Inner ring black left half */}
+      <path
+        d={`M${cx} ${cy - ri} A${ri} ${ri} 0 0 0 ${cx} ${cy + ri} Z`}
+        fill="#000000"
+      />
+      {/* Inner ring dark right half */}
+      <path
+        d={`M${cx} ${cy - ri} A${ri} ${ri} 0 0 1 ${cx} ${cy + ri} Z`}
+        fill="#1A1200"
+      />
+      {/* Centre dot — the hidden core */}
+      <circle cx={cx} cy={cy} r={rc} fill="#FBBF24" opacity={0.4} />
+      {/* Vertical divider */}
+      <line x1={cx} y1={cy - r} x2={cx} y2={cy + r} stroke="#000000" strokeWidth={size * 0.035} />
     </svg>
   );
 }

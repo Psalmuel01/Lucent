@@ -73,7 +73,8 @@ fn b(f: &Fixture) -> Bytes {
 }
 
 fn fund(f: &Fixture) {
-    f.escrow.fund(&b(f), &0u32, &b(f), &b(f), &b(f));
+    f.escrow.store_payout_proofs(&b(f), &b(f));
+    f.escrow.fund(&b(f), &0u32, &b(f));
 }
 
 fn advance_past_window(f: &Fixture, completed_at: u64) {
@@ -182,8 +183,25 @@ fn cancel_unfunded() {
 fn cannot_fund_twice() {
     let f = setup(false);
     fund(&f);
-    let res = f.escrow.try_fund(&b(&f), &0u32, &b(&f), &b(&f), &b(&f));
+    let res = f.escrow.try_fund(&b(&f), &0u32, &b(&f));
     assert_eq!(res, Err(Ok(Error::BadState)));
+}
+
+#[test]
+fn fund_before_payout_proofs_blocked() {
+    let f = setup(false);
+    let res = f.escrow.try_fund(&b(&f), &0u32, &b(&f));
+    assert_eq!(res, Err(Ok(Error::PayoutProofsMissing)));
+}
+
+#[test]
+fn store_payout_proofs_can_be_overwritten_before_funding() {
+    let f = setup(false);
+    f.escrow.store_payout_proofs(&b(&f), &b(&f));
+    // Last write wins; still Created, so this is allowed.
+    f.escrow.store_payout_proofs(&b(&f), &b(&f));
+    f.escrow.fund(&b(&f), &0u32, &b(&f));
+    assert_eq!(f.escrow.get_escrow().state, EscrowState::Funded);
 }
 
 #[test]
@@ -260,13 +278,8 @@ fn stranger_cannot_mark_completed() {
     let escrow = PrivateEscrowInstanceClient::new(&e, &id);
 
     e.mock_all_auths();
-    escrow.fund(
-        &Bytes::from_array(&e, &[1]),
-        &0u32,
-        &Bytes::from_array(&e, &[1]),
-        &Bytes::from_array(&e, &[1]),
-        &Bytes::from_array(&e, &[1]),
-    );
+    escrow.store_payout_proofs(&Bytes::from_array(&e, &[1]), &Bytes::from_array(&e, &[1]));
+    escrow.fund(&Bytes::from_array(&e, &[1]), &0u32, &Bytes::from_array(&e, &[1]));
 
     // Real auth required now: nobody authorized as the recipient.
     e.set_auths(&[]);

@@ -16,10 +16,12 @@ import { ProofLoadingOverlay } from "@/components/ui/ProofLoadingOverlay";
 import { useWallet } from "@/lib/wallet-context";
 import { useRequireWallet } from "@/lib/use-require-wallet";
 import { useAction } from "@/lib/use-action";
+import { toBaseUnits } from "@/lib/amount";
 import { errMsg } from "@/lib/err";
 import { DEPLOYMENT } from "@/lib/deployment";
 import { ESCROW_STATE_LABEL } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import { ErrorBanner } from "@/components/ui/ErrorBanner";
 
 type Row = { id: bigint; address: string; info: EscrowInfo };
 type Filter = "all" | "depositor" | "recipient" | "arbiter";
@@ -127,7 +129,7 @@ export default function EscrowPage() {
   async function confirmFund() {
     if (!pendingFund || !fundAmount) return;
     await run("fund", async (sp) => {
-      await wallet!.fundEscrow(pendingFund.address, pendingFund.recipient, BigInt(fundAmount), sp);
+      await wallet!.fundEscrow(pendingFund.address, pendingFund.recipient, toBaseUnits(fundAmount), sp);
       setPendingFund(null);
       setFundAmount("");
     });
@@ -153,7 +155,7 @@ export default function EscrowPage() {
       />
 
       <div className="flex flex-col gap-5 px-4 pb-6 md:mx-auto md:max-w-2xl md:px-8">
-        {error && <p className="rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</p>}
+        <ErrorBanner error={error} onDismiss={() => setError(null)} />
 
         <div className="flex flex-wrap gap-2">
           {(["all", "depositor", "recipient", "arbiter"] as Filter[]).map((f) => (
@@ -235,14 +237,15 @@ export default function EscrowPage() {
 
       <Modal open={pendingFund !== null} onClose={() => setPendingFund(null)} title={`Fund Escrow #${pendingFund?.id.toString() ?? ""}`}>
         <Input
-          label="Amount (XLM)"
+          label="Amount (USDC)"
           value={fundAmount}
-          onChange={(e) => setFundAmount(e.target.value.replace(/[^0-9]/g, ""))}
+          onChange={(e) => setFundAmount(e.target.value.replace(/[^0-9.]/g, ""))}
           className="font-mono"
         />
         <p className="text-xs leading-relaxed text-text-muted">
           Funding generates a register proof for the escrow&apos;s confidential account, plus the
-          transfer-in and two payout proofs — all in your browser.
+          transfer-in and two payout proofs — all in your browser. This needs two wallet
+          confirmations, submitted one after the other.
         </p>
         <Button fullWidth size="lg" isLoading={busy === "fund"} disabled={!fundAmount} onClick={confirmFund}>
           Fund Escrow

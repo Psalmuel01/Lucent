@@ -91,12 +91,46 @@ export function loadDeployment(): Deployment {
 
 export function saveDeployment(d: Deployment): void {
   mkdirSync(dirname(DEPLOYMENTS), { recursive: true });
-  const json = JSON.stringify(d, null, 2);
-  writeFileSync(DEPLOYMENTS, json);
-  // Mirror into the app so the front-end picks up new ids without a code edit.
-  writeFileSync(APP_DEPLOYMENT, json + "\n");
+  writeFileSync(DEPLOYMENTS, JSON.stringify(d, null, 2));
+  // Mirror into the app so the front-end picks up new ids without a code edit —
+  // but the app's copy gets bundled into the shipped JS, so the auditor secret
+  // is redacted here. It stays in deployments/testnet.json (never imported by
+  // the app) for the deployer's own records; the /auditor console takes a
+  // pasted-in key instead of reading one from the bundle.
+  const redacted: Deployment = { ...d, auditor: { ...d.auditor, secretHex: "" } };
+  writeFileSync(APP_DEPLOYMENT, JSON.stringify(redacted, null, 2) + "\n");
 }
 
 export function readVk(name: string): Uint8Array {
   return new Uint8Array(readFileSync(join(VKS_DIR, `${name}.vk.bin`)));
+}
+
+/** Deploy a wasm with constructor args, returning the new contract id. */
+export function deploy(wasmPath: string, source: string, ctorArgs: string[]): string {
+  const out = stellar([
+    "contract", "deploy",
+    "--wasm", wasmPath,
+    "--source", source,
+    "--network", NETWORK,
+    "--optimize=false",
+    "--", ...ctorArgs,
+  ]);
+  // The contract id is the last non-empty line of stdout.
+  const id = out.split(/\s+/).filter(Boolean).pop()!;
+  if (!id.startsWith("C")) throw new Error(`unexpected deploy output: ${out}`);
+  return id;
+}
+
+/** Upload a wasm (no instance) and return its hex hash — used for the escrow factory. */
+export function uploadWasm(wasmPath: string, source: string): string {
+  const out = stellar([
+    "contract", "upload",
+    "--wasm", wasmPath,
+    "--source", source,
+    "--network", NETWORK,
+    "--optimize=false",
+  ]);
+  const hash = out.split(/\s+/).filter(Boolean).pop()!;
+  if (!/^[0-9a-f]{64}$/i.test(hash)) throw new Error(`unexpected upload output: ${out}`);
+  return hash;
 }

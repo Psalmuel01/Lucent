@@ -6,6 +6,7 @@ export const metadata: Metadata = {
   title: "Lucent — The amount is the only secret",
   description:
     "Confidential payments on Stellar. Sender and receiver are public; only the amount is encrypted, proven with zero-knowledge and verified natively on-chain.",
+  icons: { icon: "/favicon.svg" },
 };
 
 export const viewport: Viewport = {

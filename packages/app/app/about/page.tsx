@@ -138,7 +138,7 @@ export default function AboutPage() {
                   },
                   {
                     title: "No bridge custody",
-                    desc: "Your XLM stays in Soroban contracts on Stellar. There is no bridge, no wrapped token, and no custodian holding your funds.",
+                    desc: "Your USDC stays in Soroban contracts on Stellar. There is no bridge, no wrapped token, and no custodian holding your funds.",
                   },
                 ].map(({ title, desc }) => (
                   <div key={title} className="flex flex-col gap-2">
@@ -178,7 +178,7 @@ export default function AboutPage() {
                 {
                   icon: Globe,
                   title: "Freelancers",
-                  desc: "Invoice and get paid in XLM without your entire client list and rate card becoming public record.",
+                  desc: "Invoice and get paid in USDC without your entire client list and rate card becoming public record.",
                 },
                 {
                   icon: Shield,
@@ -209,7 +209,7 @@ export default function AboutPage() {
                 <LucentLogoMark size={44} />
                 <span className="text-xl text-text-muted">×</span>
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-surface-2">
-                  <span className="text-xs font-bold tracking-tight text-text-primary">XLM</span>
+                  <span className="text-xs font-bold tracking-tight text-text-primary">USDC</span>
                 </div>
               </div>
               <div className="flex flex-col gap-3">
@@ -238,7 +238,7 @@ export default function AboutPage() {
         <section className="border-t border-border px-6 py-20">
           <div className="mx-auto flex max-w-xl flex-col items-center gap-6 text-center">
             <h2 className="text-2xl font-semibold">Ready to pay privately?</h2>
-            <p className="text-sm text-text-secondary">Connect Freighter and shield your first XLM.</p>
+            <p className="text-sm text-text-secondary">Connect Freighter and deposit your first USDC.</p>
             <Link
               href="/shield"
               className="mx-auto inline-flex items-center justify-center gap-2 rounded-full bg-accent px-7 py-3.5 text-sm font-semibold text-black transition-colors hover:bg-accent-hover"

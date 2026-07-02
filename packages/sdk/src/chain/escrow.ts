@@ -3,11 +3,13 @@
  * deploys.
  *
  * `create_escrow` (factory) deploys a fresh instance contract — its own
- * confidential account. `fund` (instance) carries the confidential-flow blobs:
- * the register proof for the instance's Grumpkin identity, the depositor's
- * transfer-in, and the two pre-generated payout proofs (instance -> recipient
- * and instance -> depositor) the state machine later selects between. All blobs
- * are built in the browser; this module only submits them.
+ * confidential account. Funding an instance is two calls, not one:
+ * `store_payout_proofs` stores the two pre-generated payout proofs (instance ->
+ * recipient and instance -> depositor) the state machine later selects between,
+ * then `fund` carries the register proof for the instance's Grumpkin identity
+ * plus the depositor's transfer-in. They're split because all four ~14KB
+ * UltraHonk proofs together exceed Soroban's per-transaction size ceiling. All
+ * blobs are built in the browser; this module only submits them.
  */
 
 import { xdr, Address, nativeToScVal, scValToNative } from "@stellar/stellar-sdk";
@@ -65,7 +67,25 @@ export async function readEscrowAddress(
 
 // ---- instance --------------------------------------------------------------
 
-/** `fund(register_data, auditor_id, transfer_in, release_proof, refund_proof)`. */
+/**
+ * `store_payout_proofs(release_proof, refund_proof)`. Must be submitted before
+ * `submitFund` — see the module doc comment for why this is a separate call.
+ */
+export function submitStorePayoutProofs(
+  client: ChainClient,
+  signer: Signer,
+  instance: string,
+  args: { releaseProof: Uint8Array; refundProof: Uint8Array },
+): Promise<InvokeResult> {
+  return client.invoke(
+    instance,
+    "store_payout_proofs",
+    [bytes(args.releaseProof), bytes(args.refundProof)],
+    signer,
+  );
+}
+
+/** `fund(register_data, auditor_id, transfer_in)`. Call `submitStorePayoutProofs` first. */
 export function submitFund(
   client: ChainClient,
   signer: Signer,
@@ -74,20 +94,12 @@ export function submitFund(
     registerData: Uint8Array;
     auditorId: number;
     transferIn: Uint8Array;
-    releaseProof: Uint8Array;
-    refundProof: Uint8Array;
   },
 ): Promise<InvokeResult> {
   return client.invoke(
     instance,
     "fund",
-    [
-      bytes(args.registerData),
-      u32(args.auditorId),
-      bytes(args.transferIn),
-      bytes(args.releaseProof),
-      bytes(args.refundProof),
-    ],
+    [bytes(args.registerData), u32(args.auditorId), bytes(args.transferIn)],
     signer,
   );
 }

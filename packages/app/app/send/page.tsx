@@ -15,7 +15,9 @@ import { SectionLabel } from "@/components/ui/SectionLabel";
 import { ProofLoadingOverlay } from "@/components/ui/ProofLoadingOverlay";
 import { useWallet } from "@/lib/wallet-context";
 import { useRequireWallet } from "@/lib/use-require-wallet";
+import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { useAction } from "@/lib/use-action";
+import { toBaseUnits } from "@/lib/amount";
 import { errMsg } from "@/lib/err";
 
 type Step = "recipient" | "amount" | "confirm";
@@ -46,7 +48,7 @@ export default function SendPage() {
   async function submit() {
     setTxHash(null);
     await run("send", async (sp) => {
-      const r = await wallet!.transfer(to.trim(), BigInt(amount || "0"), sp);
+      const r = await wallet!.transfer(to.trim(), toBaseUnits(amount || "0"), sp);
       setTxHash(r.hash);
     });
   }
@@ -65,7 +67,7 @@ export default function SendPage() {
           </motion.div>
           <div className="text-center">
             <h2 className="font-display text-xl font-semibold text-text-primary">Sent</h2>
-            <p className="mt-1 text-sm text-text-secondary">{amount} XLM sent confidentially</p>
+            <p className="mt-1 text-sm text-text-secondary">{amount} USDC sent confidentially</p>
           </div>
           <a
             href={`https://stellar.expert/explorer/testnet/tx/${txHash}`}
@@ -99,7 +101,7 @@ export default function SendPage() {
       <PageHeader title="Send" showBack={step !== "recipient"} onBack={() => setStep(steps[stepIndex - 1] ?? "recipient")} />
 
       <div className="flex flex-col gap-5 px-4 pb-6 md:mx-auto md:max-w-2xl md:px-8">
-        {error && <p className="rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</p>}
+        <ErrorBanner error={error} onDismiss={() => setError(null)} />
 
         <div className="flex items-center gap-2">
           {steps.map((s, i) => (
@@ -153,7 +155,7 @@ export default function SendPage() {
             </GlassCard>
 
             <GlassCard padding="md">
-              <NumericKeypad value={amount} onChange={setAmount} unit="XLM" />
+              <NumericKeypad value={amount} onChange={setAmount} unit="USDC" />
             </GlassCard>
 
             <div className="flex justify-center">
@@ -181,7 +183,7 @@ export default function SendPage() {
                   <span className="text-xs text-text-muted">Amount</span>
                   <div className="flex items-center gap-1.5">
                     <Lock className="h-3 w-3 text-accent" />
-                    <span className="font-mono text-sm text-text-primary">{amount} XLM</span>
+                    <span className="font-mono text-sm text-text-primary">{amount} USDC</span>
                   </div>
                 </div>
 
