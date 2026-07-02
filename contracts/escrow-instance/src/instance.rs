@@ -79,23 +79,46 @@ impl PrivateEscrowInstance {
         );
     }
 
+    /// Store the two pre-generated payout proofs (instance → recipient,
+    /// instance → depositor) the state machine will later select between.
+    /// Split out from `fund` because bundling both proofs alongside the
+    /// register and transfer-in proofs in one transaction exceeds Soroban's
+    /// per-transaction size ceiling — four ~14KB UltraHonk proofs is too much
+    /// for a single call. Must be called before `fund`; harmless to call again
+    /// while still `Created` (last write wins).
+    pub fn store_payout_proofs(e: &Env, release_proof: Bytes, refund_proof: Bytes) -> Result<(), Error> {
+        let esc = get(e);
+        esc.depositor.require_auth();
+        if esc.state != EscrowState::Created {
+            return Err(Error::BadState);
+        }
+        e.storage().instance().set(&DataKey::ReleaseProof, &release_proof);
+        e.storage().instance().set(&DataKey::RefundProof, &refund_proof);
+        Ok(())
+    }
+
     /// Lock funds into this escrow. The depositor:
     ///   * registers this instance as a confidential account (`register_data`
     ///     is the register proof for the instance's Grumpkin identity), and
-    ///   * `confidential_transfer`s the amount in (`transfer_in`),
-    /// then hands over the two pre-generated payout proofs. State: Created -> Funded.
+    ///   * `confidential_transfer`s the amount in (`transfer_in`).
+    /// Requires `store_payout_proofs` to have already been called — `Funded` is
+    /// only ever reached with a complete, working payout-proof set already in
+    /// place, so there is no reachable half-funded state. State: Created -> Funded.
     pub fn fund(
         e: &Env,
         register_data: Bytes,
         auditor_id: u32,
         transfer_in: Bytes,
-        release_proof: Bytes,
-        refund_proof: Bytes,
     ) -> Result<(), Error> {
         let mut esc = get(e);
         esc.depositor.require_auth();
         if esc.state != EscrowState::Created {
             return Err(Error::BadState);
+        }
+        if !e.storage().instance().has(&DataKey::ReleaseProof)
+            || !e.storage().instance().has(&DataKey::RefundProof)
+        {
+            return Err(Error::PayoutProofsMissing);
         }
 
         let token = token(e);
@@ -105,8 +128,6 @@ impl PrivateEscrowInstance {
         // from = depositor (the transaction source authorizes this).
         token.confidential_transfer(&esc.depositor, &this, &transfer_in);
 
-        e.storage().instance().set(&DataKey::ReleaseProof, &release_proof);
-        e.storage().instance().set(&DataKey::RefundProof, &refund_proof);
         esc.state = EscrowState::Funded;
         put(e, &esc);
         Funded {}.publish(e);

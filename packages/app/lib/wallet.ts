@@ -52,6 +52,7 @@ import {
   // escrow
   submitCreateEscrow,
   parseCreatedEscrow,
+  submitStorePayoutProofs,
   submitFund,
   submitMarkCompleted,
   submitRelease,
@@ -457,13 +458,18 @@ export class ConfidentialWallet {
     const refundProof = new Uint8Array(encodeTransferData(ref, refProof).bytes());
 
     onPhase?.("submitting");
+    // Two transactions, not one: all four proofs together exceed Soroban's
+    // per-transaction size ceiling (see the contract's `fund` doc comment).
+    this.log("submitting payout proofs…");
+    await submitStorePayoutProofs(this.client, this.signer, instance, {
+      releaseProof,
+      refundProof,
+    });
     this.log("submitting fund…");
     const r = await submitFund(this.client, this.signer, instance, {
       registerData,
       auditorId: DEPLOYMENT.auditorId,
       transferIn,
-      releaseProof,
-      refundProof,
     });
     await this.engine.setSpendable(tin.next);
     this.log(`escrow funded (tx ${r.hash.slice(0, 10)}…)`);

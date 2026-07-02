@@ -59,7 +59,8 @@ fn create_escrow_deploys_a_working_instance() {
     // through fund -> mark_completed -> release.
     let escrow = instance::Client::new(&e, &addr);
     let blob = Bytes::from_array(&e, &[7u8; 8]);
-    escrow.fund(&blob, &0u32, &blob, &blob, &blob);
+    escrow.store_payout_proofs(&blob, &blob);
+    escrow.fund(&blob, &0u32, &blob);
     escrow.mark_completed(&String::from_str(&e, "ipfs://x"));
     escrow.release();
     assert_eq!(escrow.get_escrow().state, instance::EscrowState::Released);

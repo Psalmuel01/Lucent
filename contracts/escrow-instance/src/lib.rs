@@ -12,9 +12,14 @@
 //!   itself — a contract authorizes its own outgoing transfer by invocation, so
 //!   the recipient or arbiter can trigger a payout without holding any key.
 //! * Because a contract cannot prove on-chain, the depositor pre-generates the
-//!   two possible payout proofs at fund time (instance → recipient, instance →
-//!   depositor). The instance stores both and submits exactly the one the state
-//!   machine selects.
+//!   two possible payout proofs (instance → recipient, instance → depositor)
+//!   and stores them via `store_payout_proofs` *before* calling `fund` — the
+//!   instance submits exactly the one the state machine selects, later. This
+//!   is two transactions, not one: four ~14KB UltraHonk proofs bundled into a
+//!   single `fund` call (register + transfer-in + both payout proofs) exceeds
+//!   Soroban's per-transaction size ceiling. `fund` refuses to run until the
+//!   payout proofs are already in place, so `Funded` is only ever reached with
+//!   a complete, working proof set — there's no reachable half-funded state.
 //!
 //! # Trust caveat
 //!
@@ -55,6 +60,8 @@ pub enum Error {
     ArbiterSet = 7,
     TooEarly = 8,
     NotFound = 9,
+    /// `fund` was called before `store_payout_proofs` — see instance.rs.
+    PayoutProofsMissing = 10,
 }
 
 /// Lifecycle of an escrow, mirroring the Solidity reference exactly.

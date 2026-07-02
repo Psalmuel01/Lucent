@@ -104,3 +104,33 @@ export function saveDeployment(d: Deployment): void {
 export function readVk(name: string): Uint8Array {
   return new Uint8Array(readFileSync(join(VKS_DIR, `${name}.vk.bin`)));
 }
+
+/** Deploy a wasm with constructor args, returning the new contract id. */
+export function deploy(wasmPath: string, source: string, ctorArgs: string[]): string {
+  const out = stellar([
+    "contract", "deploy",
+    "--wasm", wasmPath,
+    "--source", source,
+    "--network", NETWORK,
+    "--optimize=false",
+    "--", ...ctorArgs,
+  ]);
+  // The contract id is the last non-empty line of stdout.
+  const id = out.split(/\s+/).filter(Boolean).pop()!;
+  if (!id.startsWith("C")) throw new Error(`unexpected deploy output: ${out}`);
+  return id;
+}
+
+/** Upload a wasm (no instance) and return its hex hash — used for the escrow factory. */
+export function uploadWasm(wasmPath: string, source: string): string {
+  const out = stellar([
+    "contract", "upload",
+    "--wasm", wasmPath,
+    "--source", source,
+    "--network", NETWORK,
+    "--optimize=false",
+  ]);
+  const hash = out.split(/\s+/).filter(Boolean).pop()!;
+  if (!/^[0-9a-f]{64}$/i.test(hash)) throw new Error(`unexpected upload output: ${out}`);
+  return hash;
+}

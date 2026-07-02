@@ -19,7 +19,7 @@ import { xdr, Address } from "@stellar/stellar-sdk";
 
 import {
   NETWORK, RPC_URL, PASSPHRASE, WASM, REPO_ROOT,
-  stellar, publicKey, secret, readVk, saveDeployment, type Deployment,
+  publicKey, secret, readVk, saveDeployment, deploy, uploadWasm, type Deployment,
 } from "./_shared.js";
 import { ChainClient, keypairSigner } from "../packages/sdk/src/chain/client.js";
 import { addressToField } from "../packages/sdk/src/crypto/address.js";
@@ -45,35 +45,6 @@ const VK_FILES: ReadonlyArray<[string, number]> = [
   ["revoke_spender", CIRCUIT_TYPE.RevokeSpender],
 ];
 
-function deploy(wasmPath: string, ctorArgs: string[]): string {
-  const out = stellar([
-    "contract", "deploy",
-    "--wasm", wasmPath,
-    "--source", DEPLOYER,
-    "--network", NETWORK,
-    "--optimize=false",
-    "--", ...ctorArgs,
-  ]);
-  // The contract id is the last non-empty line of stdout.
-  const id = out.split(/\s+/).filter(Boolean).pop()!;
-  if (!id.startsWith("C")) throw new Error(`unexpected deploy output: ${out}`);
-  return id;
-}
-
-/** Upload a wasm (no instance) and return its hex hash — used for the escrow factory. */
-function uploadWasm(wasmPath: string): string {
-  const out = stellar([
-    "contract", "upload",
-    "--wasm", wasmPath,
-    "--source", DEPLOYER,
-    "--network", NETWORK,
-    "--optimize=false",
-  ]);
-  const hash = out.split(/\s+/).filter(Boolean).pop()!;
-  if (!/^[0-9a-f]{64}$/i.test(hash)) throw new Error(`unexpected upload output: ${out}`);
-  return hash;
-}
-
 async function main(): Promise<void> {
   const deployerPub = publicKey(DEPLOYER);
   console.log(`deployer ${DEPLOYER} = ${deployerPub}`);
@@ -83,9 +54,9 @@ async function main(): Promise<void> {
   console.log(`underlying (USDC SAC) = ${underlying}`);
 
   // 2. Deploy registries + token.
-  const verifier = deploy(WASM.verifier, ["--admin", deployerPub, "--manager", deployerPub]);
+  const verifier = deploy(WASM.verifier, DEPLOYER, ["--admin", deployerPub, "--manager", deployerPub]);
   console.log(`verifier = ${verifier}`);
-  const auditor = deploy(WASM.auditor, ["--admin", deployerPub, "--manager", deployerPub]);
+  const auditor = deploy(WASM.auditor, DEPLOYER, ["--admin", deployerPub, "--manager", deployerPub]);
   console.log(`auditor = ${auditor}`);
 
   const client = new ChainClient({
@@ -95,7 +66,7 @@ async function main(): Promise<void> {
   });
   const ledgerBeforeToken = await client.latestLedger();
 
-  const token = deploy(WASM.token, [
+  const token = deploy(WASM.token, DEPLOYER, [
     "--underlying_asset", underlying,
     "--verifier", verifier,
     "--auditor", auditor,
@@ -154,11 +125,11 @@ async function main(): Promise<void> {
   // 6. Lucent contracts. PayrollVault orchestrates transfers through the token;
   //    the PrivateEscrow factory deploys one instance per escrow, so its
   //    instance wasm is uploaded first and the factory is bound to that hash.
-  const payroll = deploy(WASM.payroll, ["--token", token]);
+  const payroll = deploy(WASM.payroll, DEPLOYER, ["--token", token]);
   console.log(`payroll = ${payroll}`);
-  const escrowInstanceWasm = uploadWasm(WASM.escrowInstance);
+  const escrowInstanceWasm = uploadWasm(WASM.escrowInstance, DEPLOYER);
   console.log(`escrow instance wasm = ${escrowInstanceWasm}`);
-  const escrowFactory = deploy(WASM.escrowFactory, [
+  const escrowFactory = deploy(WASM.escrowFactory, DEPLOYER, [
     "--token", token,
     "--instance_wasm", escrowInstanceWasm,
   ]);
