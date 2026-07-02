@@ -40,6 +40,7 @@ import { displayAmount } from "@/lib/amount";
 import { DEPLOYMENT } from "@/lib/deployment";
 import { errMsg } from "@/lib/err";
 import { CopyButton } from "../copy-button";
+import { ErrorBanner } from "@/components/ui/ErrorBanner";
 
 const AUDITOR_SK = fromHex(DEPLOYMENT.auditorSecretHex);
 
@@ -288,7 +289,7 @@ export default function AuditorPage() {
             newest first. Amounts every other screen shows encrypted appear here in cleartext —
             decrypted with your key alone.
           </p>
-          {error && <p className="mb-3 rounded-xl border border-error/30 bg-error/10 p-3 text-xs text-error">{error}</p>}
+          <ErrorBanner error={error} onDismiss={() => setError(null)} className="mb-3" size="sm" />
           {!rows && busy && <p className="text-sm text-text-muted">Syncing events…</p>}
           {rows && rows.length === 0 && <p className="text-sm text-text-muted">No activity in the retention window.</p>}
           {rows && (

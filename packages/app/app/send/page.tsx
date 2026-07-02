@@ -15,6 +15,7 @@ import { SectionLabel } from "@/components/ui/SectionLabel";
 import { ProofLoadingOverlay } from "@/components/ui/ProofLoadingOverlay";
 import { useWallet } from "@/lib/wallet-context";
 import { useRequireWallet } from "@/lib/use-require-wallet";
+import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { useAction } from "@/lib/use-action";
 import { toBaseUnits } from "@/lib/amount";
 import { errMsg } from "@/lib/err";
@@ -100,7 +101,7 @@ export default function SendPage() {
       <PageHeader title="Send" showBack={step !== "recipient"} onBack={() => setStep(steps[stepIndex - 1] ?? "recipient")} />
 
       <div className="flex flex-col gap-5 px-4 pb-6 md:mx-auto md:max-w-2xl md:px-8">
-        {error && <p className="rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</p>}
+        <ErrorBanner error={error} onDismiss={() => setError(null)} />
 
         <div className="flex items-center gap-2">
           {steps.map((s, i) => (

@@ -14,6 +14,7 @@ import { ProofLoadingOverlay } from "@/components/ui/ProofLoadingOverlay";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useWallet } from "@/lib/wallet-context";
 import { useRequireWallet } from "@/lib/use-require-wallet";
+import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { useAction } from "@/lib/use-action";
 import { toBaseUnits, formatAmount, displayAmount, DECIMALS } from "@/lib/amount";
 import { cn } from "@/lib/cn";
@@ -22,7 +23,7 @@ type Tab = "deposit" | "withdraw";
 
 export default function ShieldPage() {
   const wallet = useRequireWallet();
-  const { view, error } = useWallet();
+  const { view, error, setError } = useWallet();
   const { run, busy, phase } = useAction();
   const [tab, setTab] = useState<Tab>("deposit");
   const [depositAmt, setDepositAmt] = useState("");
@@ -91,7 +92,7 @@ export default function ShieldPage() {
         transition={{ duration: 0.3 }}
         className="flex flex-col gap-5 px-4 pb-6 md:mx-auto md:max-w-2xl md:px-8"
       >
-        {error && <p className="rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</p>}
+        <ErrorBanner error={error} onDismiss={() => setError(null)} />
 
         {/* Balances */}
         <GlassCard padding="md">

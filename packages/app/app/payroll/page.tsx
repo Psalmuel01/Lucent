@@ -23,6 +23,7 @@ import { toBaseUnits } from "@/lib/amount";
 import { errMsg } from "@/lib/err";
 import { DEPLOYMENT } from "@/lib/deployment";
 import { cn } from "@/lib/cn";
+import { ErrorBanner } from "@/components/ui/ErrorBanner";
 
 type TopTab = "employer" | "employee";
 type EmployerTab = "templates" | "runs";
@@ -200,7 +201,7 @@ export default function PayrollPage() {
       />
 
       <div className="flex flex-col gap-5 px-4 pb-24 md:mx-auto md:max-w-2xl md:px-8 md:pb-8">
-        {error && <p className="rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</p>}
+        <ErrorBanner error={error} onDismiss={() => setError(null)} />
 
         <div className="flex gap-2 rounded-2xl border border-border bg-card p-1">
           {(["employer", "employee"] as TopTab[]).map((t) => (

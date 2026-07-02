@@ -9,11 +9,12 @@ import { useWallet } from "@/lib/wallet-context";
 import { cn } from "@/lib/cn";
 import { EventsPanel } from "./events-panel";
 import { VerifyPanel } from "./verify-panel";
+import { ErrorBanner } from "@/components/ui/ErrorBanner";
 
 type Tab = "prove" | "verify";
 
 export default function ProvePage() {
-  const { wallet, connect, connecting, error } = useWallet();
+  const { wallet, connect, connecting, error, setError } = useWallet();
   const [tab, setTab] = useState<Tab>("prove");
 
   return (
@@ -43,7 +44,7 @@ export default function ProvePage() {
 
         {tab === "prove" ? (
           <>
-            {error && <p className="rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</p>}
+            <ErrorBanner error={error} onDismiss={() => setError(null)} />
             {wallet ? (
               <EventsPanel wallet={wallet} />
             ) : (

@@ -21,6 +21,7 @@ import { errMsg } from "@/lib/err";
 import { DEPLOYMENT } from "@/lib/deployment";
 import { ESCROW_STATE_LABEL } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import { ErrorBanner } from "@/components/ui/ErrorBanner";
 
 type Row = { id: bigint; address: string; info: EscrowInfo };
 type Filter = "all" | "depositor" | "recipient" | "arbiter";
@@ -154,7 +155,7 @@ export default function EscrowPage() {
       />
 
       <div className="flex flex-col gap-5 px-4 pb-6 md:mx-auto md:max-w-2xl md:px-8">
-        {error && <p className="rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</p>}
+        <ErrorBanner error={error} onDismiss={() => setError(null)} />
 
         <div className="flex flex-wrap gap-2">
           {(["all", "depositor", "recipient", "arbiter"] as Filter[]).map((f) => (

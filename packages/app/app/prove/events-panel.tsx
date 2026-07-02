@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
 import { Pill } from "@/components/ui/Pill";
 import { CopyButton } from "../copy-button";
+import { ErrorBanner } from "@/components/ui/ErrorBanner";
 
 export function EventsPanel({ wallet }: { wallet: ConfidentialWallet }) {
   const [events, setEvents] = useState<ConfidentialEvent[] | null>(null);
@@ -51,7 +52,7 @@ export function EventsPanel({ wallet }: { wallet: ConfidentialWallet }) {
         Events involving your account ({DEPLOYMENT.indexerUrl ? "full history via indexer" : "~7-day RPC retention"}).
         Disclose a transfer to prove its amount to a third party — as its receiver or its sender.
       </p>
-      {error && <p className="mb-3 rounded-xl border border-error/30 bg-error/10 p-2 text-xs text-error">{error}</p>}
+      <ErrorBanner error={error} onDismiss={() => setError(null)} className="mb-3" size="sm" />
       {events && events.length === 0 && <p className="text-sm text-text-muted">No activity in the retention window.</p>}
       {!events && busy && <p className="text-sm text-text-muted">Loading events…</p>}
       {events && (
@@ -143,7 +144,7 @@ function DiscloseFlow({ ev, direction, wallet }: { ev: TransferEvent; direction:
       <Button size="sm" isLoading={busy} disabled={!requestJson.trim()} onClick={generate}>
         Generate disclosure proof
       </Button>
-      {error && <p className="rounded-xl border border-error/30 bg-error/10 p-2 text-xs text-error">{error}</p>}
+      <ErrorBanner error={error} onDismiss={() => setError(null)} size="sm" />
       {bundleJson && (
         <div className="flex flex-col gap-2">
           <Textarea readOnly className="h-28 font-mono text-xs" value={bundleJson} />
