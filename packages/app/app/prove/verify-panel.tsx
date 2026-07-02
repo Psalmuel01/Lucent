@@ -171,8 +171,10 @@ export function VerifyPanel() {
       {result && (
         <GlassCard padding="md" className="border-success/40">
           <h3 className="mb-2 font-medium text-md text-success">Disclosure verified ✓</h3>
-          <div className="mb-3 font-display text-xl font-bold tabular-nums text-text-primary">
-            {displayAmount(result.amount)}
+          <div className="mb-3">
+            <span className="font-display text-3xl font-bold tabular-nums text-accent">
+              {displayAmount(result.amount)}
+            </span>
           </div>
           <p className="text-sm text-text-secondary">
             The on-chain transfer{" "}

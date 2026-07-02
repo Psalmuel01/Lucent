@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { Pill } from "@/components/ui/Pill";
 import { CopyButton } from "../copy-button";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { displayAmount } from "@/lib/amount";
 
 export function EventsPanel({ wallet }: { wallet: ConfidentialWallet }) {
   const [events, setEvents] = useState<ConfidentialEvent[] | null>(null);
@@ -173,11 +174,11 @@ function summary(ev: ConfidentialEvent, me: string): string {
     case "register":
       return `${who(ev.account)} registered (auditor #${ev.auditorId})`;
     case "deposit":
-      return `${who(ev.from)} deposited ${ev.amount} (public) → ${who(ev.to)}`;
+      return `${who(ev.from)} deposited ${displayAmount(ev.amount)} (public) → ${who(ev.to)}`;
     case "merge":
       return `${who(ev.account)} merged receiving → spendable`;
     case "withdraw":
-      return `${who(ev.from)} withdrew ${ev.amount} (public) → ${who(ev.to)}`;
+      return `${who(ev.from)} withdrew ${displayAmount(ev.amount)} (public) → ${who(ev.to)}`;
     case "transfer":
       return ev.to === me
         ? `from ${who(ev.from)} · amount confidential`

@@ -1,10 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, ArrowDownUp, Send, Briefcase, Lock, ScanLine, Shield, Menu, X } from "lucide-react";
+import {
+  ArrowRight,
+  ArrowDownUp,
+  Send,
+  Briefcase,
+  Lock,
+  ScanLine,
+  Shield,
+  Menu,
+  X,
+} from "lucide-react";
+import { ChainClient, fetchEvents } from "@lucent/sdk";
 import { LucentLogoMark } from "@/components/icons/LucentLogoMark";
+import { GithubMark } from "@/components/icons/GithubMark";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { DEPLOYMENT } from "@/lib/deployment";
 
 const STEPS = [
   {
@@ -58,6 +72,58 @@ const fadeUp = {
   hidden: { opacity: 0, y: 16 },
   show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" as const } },
 };
+
+function StatsBar() {
+  const [count, setCount] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const client = new ChainClient({
+          rpcUrl: DEPLOYMENT.rpcUrl,
+          networkPassphrase: DEPLOYMENT.networkPassphrase,
+          contracts: DEPLOYMENT.contracts,
+        });
+        const { events } = await fetchEvents(client, { startLedger: DEPLOYMENT.deployedAtLedger });
+        if (!cancelled) setCount(events.length);
+      } catch {
+        if (!cancelled) setCount(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <div className="border-t border-border py-6">
+      <div className="mx-auto flex max-w-4xl items-center justify-center gap-12 px-6">
+        <div className="text-center">
+          <div className="font-mono text-sm font-semibold text-text-secondary">Protocol 26</div>
+          <div className="mt-1 text-xs text-text-muted">ZK verified on-chain</div>
+        </div>
+        <div className="h-8 w-px bg-border" />
+        <div className="text-center">
+          {loading ? (
+            <Skeleton className="mx-auto h-9 w-14" />
+          ) : (
+            <div className="font-display text-3xl font-bold tabular-nums text-accent">{count ?? "—"}</div>
+          )}
+          <div className="mt-1 text-xs text-text-muted">confidential transactions</div>
+        </div>
+        <div className="h-8 w-px bg-border" />
+        <div className="text-center">
+          <div className="font-mono text-sm font-semibold text-text-secondary">Stellar testnet</div>
+          <div className="mt-1 text-xs text-text-muted">live deployment</div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -174,7 +240,7 @@ export default function LandingPage() {
               Sender and receiver are public. Only the number is encrypted — with ZK proofs verified
               natively on Stellar. Same chain, same finality, different visibility.
             </motion.p>
-            <motion.div variants={fadeUp} className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <motion.div variants={fadeUp} className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <Link
                 href="/shield"
                 className="flex items-center justify-center gap-2 rounded-2xl bg-accent px-7 py-3.5 text-sm font-semibold text-black transition-colors hover:bg-accent-hover"
@@ -182,6 +248,7 @@ export default function LandingPage() {
                 Launch App
                 <ArrowRight className="h-4 w-4" />
               </Link>
+              <div className="hidden h-8 w-px bg-border sm:block" />
               <Link
                 href="/docs"
                 className="flex items-center justify-center gap-2 rounded-2xl border border-border px-7 py-3.5 text-sm font-medium text-text-secondary transition-colors hover:border-border-hover hover:text-text-primary"
@@ -189,10 +256,10 @@ export default function LandingPage() {
                 Read Docs
               </Link>
             </motion.div>
-            <motion.div variants={fadeUp} className="flex items-center justify-center gap-2 text-xs text-text-muted">
+            <motion.div variants={fadeUp} className="flex items-center justify-center gap-2 font-mono text-xs text-text-muted">
               <span>Powered by</span>
               <span className="font-medium text-text-secondary">Stellar Protocol 26</span>
-              <span>·</span>
+              <span className="text-accent">·</span>
               <span>Soroban testnet</span>
             </motion.div>
           </motion.div>
@@ -292,6 +359,8 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <StatsBar />
+
       {/* Footer */}
       <footer className="border-t border-border px-6 py-12">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 md:flex-row">
@@ -313,8 +382,9 @@ export default function LandingPage() {
               href="https://github.com/Psalmuel01/Lucent"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm text-text-muted transition-colors hover:text-text-secondary"
+              className="flex items-center gap-1.5 text-sm text-text-muted transition-colors hover:text-text-secondary"
             >
+              <GithubMark className="h-4 w-4" />
               GitHub
             </a>
             <a
