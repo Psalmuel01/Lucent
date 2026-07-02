@@ -39,7 +39,16 @@ interface WalletCtx {
   /** Resolves to the connected wallet, or `null` if connection failed (see `error`). */
   connect: () => Promise<ConfidentialWallet | null>;
   refresh: () => Promise<void>;
-  /** Forget the local session. Freighter itself stays connected — the browser extension owns that grant. */
+  /**
+   * Recovery path for a "Mismatch" badge a plain {@link refresh} doesn't
+   * clear: wipes locally cached state and fully replays event history.
+   */
+  resync: () => Promise<void>;
+  /**
+   * Forget the local session. Freighter itself stays connected — the browser
+   * extension owns that grant — but a flag is set so a later reload won't
+   * silently auto-reconnect; only an explicit {@link connect} clears it.
+   */
   disconnect: () => void;
   log: (msg: string) => void;
   setError: (e: string | null) => void;
@@ -113,6 +122,18 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (!wallet) return;
     try {
       const v = await wallet.refresh();
+      setView(v);
+      setLastSync(new Date());
+    } catch (e) {
+      setError(errMsg(e));
+    }
+  }, [wallet]);
+
+  const resync = useCallback(async () => {
+    if (!wallet) return;
+    setError(null);
+    try {
+      const v = await wallet.resync();
       setView(v);
       setLastSync(new Date());
     } catch (e) {

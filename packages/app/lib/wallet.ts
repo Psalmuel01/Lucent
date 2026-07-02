@@ -217,6 +217,7 @@ export class ConfidentialWallet {
   async merge(): Promise<void> {
     this.log("merging receiving → spendable…");
     const r = await submitMerge(this.client, this.signer, this.address);
+    await this.engine.applyMerge();
     this.log(`merged (tx ${r.hash.slice(0, 10)}…)`);
   }
 
@@ -343,6 +344,7 @@ export class ConfidentialWallet {
   /** Employee: fold received salary into spendable (token `merge`, no proof). */
   async claimSalary(): Promise<void> {
     const r = await submitClaim(this.client, this.signer, this.address);
+    await this.engine.applyMerge();
     this.log(`claimed salary (tx ${r.hash.slice(0, 10)}…)`);
   }
 
@@ -673,6 +675,19 @@ export class ConfidentialWallet {
     });
     this.log(`disclosure proof ready for event in tx ${event.txHash.slice(0, 10)}…`);
     return bundle;
+  }
+
+  /**
+   * Recovery path for a persistent sync-badge mismatch: wipe locally cached
+   * state and fully replay event history from the deploy ledger, then refresh
+   * as normal. Use when a plain refresh doesn't clear a "Mismatch" — that
+   * means the divergent local state is already past the resume cursor, so a
+   * normal sync (which only fetches events after it) can't self-correct.
+   */
+  async resync(): Promise<WalletView> {
+    this.log("resyncing from chain history…");
+    await this.engine.reset();
+    return this.refresh();
   }
 
   /** Sync from RPC events, verify against chain, and return a UI view. */
