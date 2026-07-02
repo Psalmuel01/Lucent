@@ -18,14 +18,14 @@ import { useRequireWallet } from "@/lib/use-require-wallet";
 import { ConnectPrompt } from "@/components/ui/ConnectPrompt";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { useAction } from "@/lib/use-action";
-import { toBaseUnits } from "@/lib/amount";
+import { toBaseUnits, formatAmount, DECIMALS } from "@/lib/amount";
 import { errMsg } from "@/lib/err";
 
 type Step = "recipient" | "amount" | "confirm";
 
 export default function SendPage() {
   const wallet = useRequireWallet();
-  const { error, setError } = useWallet();
+  const { view, error, setError } = useWallet();
   const { run, busy, phase } = useAction();
   const [step, setStep] = useState<Step>("recipient");
   const [recipients, setRecipients] = useState<string[] | null>(null);
@@ -103,6 +103,7 @@ export default function SendPage() {
 
   const steps: Step[] = ["recipient", "amount", "confirm"];
   const stepIndex = steps.indexOf(step);
+  const spendable = view?.spendable ?? 0n;
 
   return (
     <AppShell>
@@ -163,7 +164,13 @@ export default function SendPage() {
             </GlassCard>
 
             <GlassCard padding="md">
-              <NumericKeypad value={amount} onChange={setAmount} unit="USDC" />
+              <NumericKeypad
+                value={amount}
+                onChange={setAmount}
+                unit="USDC"
+                maxValue={formatAmount(spendable, DECIMALS)}
+                onMax={() => setAmount(formatAmount(spendable, DECIMALS))}
+              />
             </GlassCard>
 
             <div className="flex justify-center">

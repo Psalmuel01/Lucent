@@ -172,9 +172,10 @@ The front-end (`packages/app`) is a dark, gold-accented Next.js app:
 
 - **Landing, Docs, About** — the public marketing surface.
 - **Shield · Send · Payroll · Escrow · Auditor · Prove · Profile** — the app,
-  reachable from a sidebar (desktop) or bottom nav (mobile). Shield, Send,
-  Payroll, Escrow, and Profile require a connected wallet and redirect to the
-  landing page if none is connected; Auditor needs no wallet at all, and
+  reachable from a sidebar (desktop) or bottom nav (mobile), all one tap from
+  each other — none of them redirect. Shield, Send, Payroll, Escrow, and
+  Profile need a connected wallet and show an inline connect prompt in place
+  of their content until one's attached; Auditor needs no wallet at all, and
   Prove only gates its holder-side tab.
 - A shared component library (glass cards, proof-loading overlays, encrypted
   badges, a numeric keypad, tx-status steppers) and a `ConfidentialWallet`

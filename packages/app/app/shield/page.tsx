@@ -183,7 +183,7 @@ export default function ShieldPage() {
                     value={depositAmt}
                     onChange={setDepositAmt}
                     unit="USDC"
-                    maxValue={formatAmount(publicUSDC)}
+                    maxValue={formatAmount(publicUSDC, DECIMALS)}
                     onMax={() => setDepositAmt(formatAmount(publicUSDC, DECIMALS))}
                   />
                 </GlassCard>
@@ -218,7 +218,7 @@ export default function ShieldPage() {
                     value={withdrawAmt}
                     onChange={setWithdrawAmt}
                     unit="USDC"
-                    maxValue={formatAmount(spendable)}
+                    maxValue={formatAmount(spendable, DECIMALS)}
                     onMax={() => setWithdrawAmt(formatAmount(spendable, DECIMALS))}
                   />
                 </GlassCard>
