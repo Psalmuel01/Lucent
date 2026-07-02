@@ -22,7 +22,7 @@ export function Sidebar() {
   const { wallet, disconnect } = useWallet();
 
   return (
-    <aside className="flex h-full w-60 shrink-0 flex-col border-r border-border bg-surface-2">
+    <aside className="flex h-full w-60 shrink-0 flex-col border-r border-border">
       <Link
         href="/"
         className="flex items-center gap-2.5 border-b border-border px-5 py-5 transition-opacity hover:opacity-75"

@@ -18,7 +18,7 @@ export function LucentLogoMark({ size = 32, showBg = true, ...props }: Props) {
       xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
-      {showBg && <rect width="48" height="48" rx="12" fill="#000000" />}
+      {showBg && <rect width="48" height="48" rx="12" fill="#080808" />}
       {/* Open shackle arc — swung open to the right */}
       <path
         d="M15 22 L15 15 A9 9 0 0 1 33 15 L33 18"
@@ -30,8 +30,8 @@ export function LucentLogoMark({ size = 32, showBg = true, ...props }: Props) {
       {/* Lock body */}
       <rect x="10" y="22" width="28" height="19" rx="5" fill="#FBBF24" />
       {/* Keyhole */}
-      <circle cx="24" cy="30.5" r="3.5" fill="#000000" />
-      <rect x="22.5" y="30" width="3" height="5.5" rx="1.5" fill="#000000" />
+      <circle cx="24" cy="30.5" r="3.5" fill="#080808" />
+      <rect x="22.5" y="30" width="3" height="5.5" rx="1.5" fill="#080808" />
     </svg>
   );
 }

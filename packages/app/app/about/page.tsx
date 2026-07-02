@@ -222,7 +222,7 @@ export default function AboutPage() {
                   Stellar.
                 </p>
                 <a
-                  href="https://developers.stellar.org"
+                  href="https://github.com/OpenZeppelin/stellar-contracts"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mx-auto inline-flex items-center gap-1.5 text-sm text-accent transition-colors hover:text-accent-hover"

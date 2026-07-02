@@ -25,7 +25,7 @@ export function AppShell({ children, showNav = true }: AppShellProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.22, ease: "easeOut" }}
         >
-          <div className="mx-auto w-full max-w-[430px] md:max-w-5xl">
+          <div className="mx-auto w-full max-w-[430px] md:max-w-2xl">
             <div className="pt-3 md:pt-6">
               <WalletBar />
             </div>

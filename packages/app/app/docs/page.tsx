@@ -318,7 +318,7 @@ No delivery -> depositor waits for timeout -> reclaims (REFUNDED)`}</Pre>
           <P>
             The contracts and frontend are open source on{" "}
             <a
-              href="https://github.com/OpenZeppelin/stellar-contracts"
+              href="https://github.com/Psalmuel01/Lucent"
               target="_blank"
               rel="noopener noreferrer"
               className="text-accent transition-colors hover:text-accent-hover"

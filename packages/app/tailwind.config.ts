@@ -5,7 +5,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        void: '#000000',
+        void: '#080808',
         surface: { DEFAULT: '#09090B', 2: '#111113' },
         card: { DEFAULT: '#18181B', hover: '#27272A' },
         border: { DEFAULT: 'rgba(255,255,255,0.08)', hover: 'rgba(255,255,255,0.18)' },
