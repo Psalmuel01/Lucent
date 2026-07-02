@@ -2,21 +2,21 @@
   "network": "testnet",
   "rpcUrl": "https://soroban-testnet.stellar.org",
   "passphrase": "Test SDF Network ; September 2015",
-  "_note": "Cleared for the USDC migration — redeploy everything with `pnpm deploy:contracts` (set UNDERLYING_TOKEN to the USDC SAC below). `underlying` is the Stellar testnet USDC Stellar Asset Contract, derived from issuer GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5 via: stellar contract id asset --asset USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5 --network testnet",
-  "deployedAtLedger": 3013364,
+  "deployedAtLedger": 3395899,
   "contracts": {
-    "token": "",
-    "verifier": "",
-    "auditor": "",
+    "token": "CDQLYWKQYQ7QUUU6E5R4YTOZLEUN3OQ62GCS6SCCOLIL7SBT4T2MXPKU",
+    "verifier": "CD7K5WUH7PYGFJLTD4TH7BIEO4TOJUZBLGQDJTTXKASI5TLPLO4R6KDY",
+    "auditor": "CBJ43COFQXAWZNZTQQ6XD2T6WRKFAX37GKUD6D5RJE2Q2KLWIKAOVQ5V",
     "underlying": "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
-    "payroll": "",
-    "escrowFactory": ""
+    "payroll": "CB4S4ARQVMDI6WUS7IT4VB2EEQBGRFWRS23Q4N765Y6UNLHNU6T4AUFV",
+    "escrowFactory": "CAXNBXUAMG6ZFYHPKR2UOCAHXR3GGRNYJZH5M74WJ4CR5ZJ6RQBG75R4",
+    "escrowInstanceWasm": "5fcc835be51179c984d374a04bb8bcd7a00c3b6611781644b35b153d75cff77b"
   },
   "auditor": {
     "id": 0,
-    "secretHex": "0x00c066da47bac8f87cd3eb9a36c37b417ca40cfa2730e7d8eb7f0bf939d11832",
-    "keyXHex": "",
-    "keyYHex": ""
+    "secretHex": "0x00b323d53fd43fc4e3710728fea88aa0600aa20726e07f1c558a17b682ed76b3",
+    "keyXHex": "0x20e9114a670a4ac2ae297c65a8a6ecc26f782af39d9be7ea7134a562c5427030",
+    "keyYHex": "0x1924f028600e145cebddced39723196c9765ced6717a28454a15d527ffc120c8"
   },
-  "addrF": ""
+  "addrF": "0x1896645bbc5997f389ec4574762542037823c8b2b22ce4511e59ee7ea7e90dfa"
 }
