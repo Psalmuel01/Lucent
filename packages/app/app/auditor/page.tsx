@@ -41,6 +41,7 @@ import { SectionLabel } from "@/components/ui/SectionLabel";
 import { Pill, type PillTone } from "@/components/ui/Pill";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Callout } from "@/components/ui/Callout";
+import { AddressDisplay } from "@/components/ui/AddressDisplay";
 import { displayAmount } from "@/lib/amount";
 import { DEPLOYMENT } from "@/lib/deployment";
 import { errMsg } from "@/lib/err";
@@ -266,6 +267,9 @@ export default function AuditorPage() {
 
   const kAud = auditorSk !== null ? pointCoords(auditorPublicKey(auditorSk)) : null;
 
+  const transferRows = rows?.filter((r) => r.ev.type === "transfer" && r.channelsAgree) ?? [];
+  const totalVolume = transferRows.reduce((sum, r) => sum + (r.amount ?? 0n), 0n);
+
   return (
     <AppShell>
       <PageHeader title="Auditor" showBack={false} />
@@ -335,7 +339,7 @@ export default function AuditorPage() {
           </GlassCard>
         ) : (
           <>
-            <GlassCard padding="md" className="border-accent/25">
+            {/* <GlassCard padding="md" className="border-accent/25">
               <div className="mb-1 mt-0 flex items-center justify-between">
                 <SectionLabel>Auditor Console</SectionLabel>
                 <Button size="sm" variant="ghost" onClick={lock}>
@@ -358,7 +362,13 @@ export default function AuditorPage() {
                   </div>
                 </dl>
               )}
-            </GlassCard>
+            </GlassCard> */}
+
+            <div className="grid grid-cols-3 gap-3">
+              <StatCard label="Transfers decrypted" value={transferRows.length.toLocaleString()} />
+              <StatCard label="Volume seen" value={displayAmount(totalVolume)} />
+              <StatCard label="Accounts tracked" value={accounts.length.toLocaleString()} />
+            </div>
 
             <GlassCard padding="md">
               <div className="mb-1 flex items-center justify-between">
@@ -395,7 +405,9 @@ export default function AuditorPage() {
                   <tbody className="text-text-secondary">
                     {accounts.map((a) => (
                       <tr key={a.address} className="border-t border-border">
-                        <td className="py-1.5 font-mono">{shortAddr(a.address)}</td>
+                        <td className="py-1.5">
+                          <AddressDisplay address={a.address} chars={6} className="text-xs" />
+                        </td>
                         <td className="py-1.5 font-mono tabular-nums text-text-primary">{a.spendable === null ? "?" : displayAmount(a.spendable)}</td>
                         <td className="py-1.5 font-mono tabular-nums text-text-primary">{displayAmount(a.receiving)}</td>
                         <td className="py-1.5 text-text-muted">ledger {a.lastLedger}</td>
@@ -437,15 +449,19 @@ export default function AuditorPage() {
 
 function AuditRowView({ row }: { row: AuditRow }) {
   const { ev } = row;
-  const parties =
-    ev.type === "register" || ev.type === "merge"
-      ? shortAddr(ev.account)
-      : `${shortAddr(ev.from)} → ${shortAddr(ev.to)}`;
   return (
     <li className="rounded-xl border border-border bg-white/[0.02] p-3">
       <div className="flex flex-wrap items-center gap-2">
         <Pill tone={badgeTone(ev.type)}>{ev.type}</Pill>
-        <span className="font-mono text-xs text-text-muted">{parties}</span>
+        {ev.type === "register" || ev.type === "merge" ? (
+          <AddressDisplay address={ev.account} chars={6} className="text-xs" />
+        ) : (
+          <div className="flex items-center gap-1">
+            <AddressDisplay address={ev.from} chars={6} className="text-xs" />
+            <span className="text-xs text-text-muted">→</span>
+            <AddressDisplay address={ev.to} chars={6} className="text-xs" />
+          </div>
+        )}
         <span className="flex-1" />
         {row.amount !== null && (
           <span className="font-mono text-sm font-medium tabular-nums text-accent">{displayAmount(row.amount)}</span>
@@ -493,4 +509,15 @@ function badgeTone(type: ConfidentialEvent["type"]): PillTone {
 
 function shortAddr(a: string): string {
   return `${a.slice(0, 6)}…${a.slice(-4)}`;
+}
+
+function StatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <GlassCard padding="sm">
+      <div className="flex flex-col gap-1">
+        <span className="font-mono text-[10px] uppercase tracking-widest text-text-muted">{label}</span>
+        <span className="font-display text-xl font-bold tabular-nums text-text-primary">{value}</span>
+      </div>
+    </GlassCard>
+  );
 }
