@@ -18,6 +18,7 @@ import { Pill } from "@/components/ui/Pill";
 import { ProofLoadingOverlay } from "@/components/ui/ProofLoadingOverlay";
 import { useWallet } from "@/lib/wallet-context";
 import { useRequireWallet } from "@/lib/use-require-wallet";
+import { ConnectPrompt } from "@/components/ui/ConnectPrompt";
 import { useAction } from "@/lib/use-action";
 import { toBaseUnits } from "@/lib/amount";
 import { errMsg } from "@/lib/err";
@@ -93,7 +94,14 @@ export default function PayrollPage() {
 
   useEffect(reload, [reload]);
 
-  if (!wallet) return null;
+  if (!wallet) {
+    return (
+      <AppShell>
+        <PageHeader title="Payroll" showBack={false} />
+        <ConnectPrompt message="Connect your wallet to run confidential payroll." />
+      </AppShell>
+    );
+  }
 
   if (!configured) {
     return (

@@ -15,6 +15,7 @@ import { SectionLabel } from "@/components/ui/SectionLabel";
 import { ProofLoadingOverlay } from "@/components/ui/ProofLoadingOverlay";
 import { useWallet } from "@/lib/wallet-context";
 import { useRequireWallet } from "@/lib/use-require-wallet";
+import { ConnectPrompt } from "@/components/ui/ConnectPrompt";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { useAction } from "@/lib/use-action";
 import { toBaseUnits } from "@/lib/amount";
@@ -43,7 +44,14 @@ export default function SendPage() {
       });
   }, [wallet, setError]);
 
-  if (!wallet) return null;
+  if (!wallet) {
+    return (
+      <AppShell>
+        <PageHeader title="Send" showBack={false} />
+        <ConnectPrompt message="Connect your wallet to send a confidential transfer." />
+      </AppShell>
+    );
+  }
 
   async function submit() {
     setTxHash(null);

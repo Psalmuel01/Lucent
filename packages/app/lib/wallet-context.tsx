@@ -85,7 +85,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setView(null);
     setLastSync(null);
     setError(null);
-    router.push("/");
+    // router.push("/");
   }, [router]);
 
   const value = useMemo(

@@ -2,11 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, ArrowDownUp, Send, Briefcase, Lock, ScanLine, Shield, Menu, X } from "lucide-react";
 import { LucentLogoMark } from "@/components/icons/LucentLogoMark";
-import { useWallet } from "@/lib/wallet-context";
 
 const STEPS = [
   {
@@ -63,17 +61,6 @@ const fadeUp = {
 
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { wallet, connecting, connect } = useWallet();
-  const router = useRouter();
-
-  async function launch() {
-    if (wallet) {
-      router.push("/shield");
-      return;
-    }
-    const w = await connect();
-    if (w) router.push("/shield");
-  }
 
   return (
     <div className="min-h-dvh overflow-x-hidden bg-void text-text-primary">
@@ -93,14 +80,13 @@ export default function LandingPage() {
             <Link href="/about" className="text-sm text-text-secondary transition-colors hover:text-text-primary">
               About
             </Link>
-            <button
-              onClick={launch}
-              disabled={connecting}
-              className="flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-black transition-colors hover:bg-accent-hover disabled:opacity-60"
+            <Link
+              href="/shield"
+              className="flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-black transition-colors hover:bg-accent-hover"
             >
-              {connecting ? "Connecting…" : wallet ? "Go to App" : "Launch App"}
+              Launch App
               <ArrowRight className="h-4 w-4" />
-            </button>
+            </Link>
           </div>
 
           {/* Mobile hamburger */}
@@ -138,17 +124,14 @@ export default function LandingPage() {
                 >
                   About
                 </Link>
-                <button
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    void launch();
-                  }}
-                  disabled={connecting}
-                  className="flex items-center justify-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-accent-hover disabled:opacity-60"
+                <Link
+                  href="/shield"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center justify-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-accent-hover"
                 >
-                  {connecting ? "Connecting…" : wallet ? "Go to App" : "Launch App"}
+                  Launch App
                   <ArrowRight className="h-4 w-4" />
-                </button>
+                </Link>
               </div>
             </motion.div>
           )}
@@ -192,14 +175,13 @@ export default function LandingPage() {
               natively on Stellar. Same chain, same finality, different visibility.
             </motion.p>
             <motion.div variants={fadeUp} className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <button
-                onClick={launch}
-                disabled={connecting}
-                className="flex items-center justify-center gap-2 rounded-2xl bg-accent px-7 py-3.5 text-sm font-semibold text-black transition-colors hover:bg-accent-hover disabled:opacity-60"
+              <Link
+                href="/shield"
+                className="flex items-center justify-center gap-2 rounded-2xl bg-accent px-7 py-3.5 text-sm font-semibold text-black transition-colors hover:bg-accent-hover"
               >
-                {connecting ? "Connecting…" : wallet ? "Go to App" : "Launch App"}
+                Launch App
                 <ArrowRight className="h-4 w-4" />
-              </button>
+              </Link>
               <Link
                 href="/docs"
                 className="flex items-center justify-center gap-2 rounded-2xl border border-border px-7 py-3.5 text-sm font-medium text-text-secondary transition-colors hover:border-border-hover hover:text-text-primary"

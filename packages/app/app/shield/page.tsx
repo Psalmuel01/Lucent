@@ -14,6 +14,7 @@ import { ProofLoadingOverlay } from "@/components/ui/ProofLoadingOverlay";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useWallet } from "@/lib/wallet-context";
 import { useRequireWallet } from "@/lib/use-require-wallet";
+import { ConnectPrompt } from "@/components/ui/ConnectPrompt";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { useAction } from "@/lib/use-action";
 import { toBaseUnits, formatAmount, displayAmount, DECIMALS } from "@/lib/amount";
@@ -30,7 +31,14 @@ export default function ShieldPage() {
   const [withdrawAmt, setWithdrawAmt] = useState("");
   const [steps, setSteps] = useState<TxStep[]>([]);
 
-  if (!wallet) return null;
+  if (!wallet) {
+    return (
+      <AppShell>
+        <PageHeader title="Shield" showBack={false} />
+        <ConnectPrompt message="Connect your wallet to deposit, withdraw, and shield USDC into a confidential balance." />
+      </AppShell>
+    );
+  }
 
   const registered = view?.registered ?? false;
   const receiving = view?.receiving ?? 0n;

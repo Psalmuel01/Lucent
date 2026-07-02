@@ -12,6 +12,7 @@ import { Pill } from "@/components/ui/Pill";
 import { LucentLogoMark } from "@/components/icons/LucentLogoMark";
 import { useWallet } from "@/lib/wallet-context";
 import { useRequireWallet } from "@/lib/use-require-wallet";
+import { ConnectPrompt } from "@/components/ui/ConnectPrompt";
 import { DEPLOYMENT } from "@/lib/deployment";
 
 export default function ProfilePage() {
@@ -32,7 +33,14 @@ export default function ProfilePage() {
     router.push("/");
   }
 
-  if (!wallet) return null;
+  if (!wallet) {
+    return (
+      <AppShell>
+        <PageHeader title="Profile" showBack={false} />
+        <ConnectPrompt message="Connect your wallet to view your profile." />
+      </AppShell>
+    );
+  }
 
   const synced = view?.matchesChain === true;
 

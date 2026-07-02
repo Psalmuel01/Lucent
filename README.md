@@ -271,7 +271,7 @@ Read from `deployments/testnet.json`, rewritten automatically by
 
 ## Acknowledgments
 
-Lucent is built on
+Lucent is inspired by
 [`stellar-confidential-token-demo`](https://github.com/brozorec/stellar-confidential-token-demo),
 an open-source confidential-payments demo for Stellar (MIT). Its
 confidential-token primitive builds on
