@@ -79,7 +79,17 @@ function EventRow({ ev, wallet }: { ev: ConfidentialEvent; wallet: ConfidentialW
           {direction ?? ev.type}
         </Pill>
         <span className="text-xs text-text-muted">ledger {ev.ledger}</span>
-        <span className="font-mono text-xs text-text-muted">tx {ev.txHash.slice(0, 10)}…</span>
+        <span className="font-mono text-xs text-text-muted">
+          tx{" "}
+          <a
+            href={`https://stellar.expert/explorer/testnet/tx/${ev.txHash}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-accent/40 hover:text-accent-hover/50 hover:underline"
+          >
+            {ev.txHash.slice(0, 10)}…
+          </a>
+        </span>
         <span className="flex-1" />
         {direction && canDisclose && (
           <Button size="sm" variant="ghost" onClick={() => setOpen((v) => !v)}>

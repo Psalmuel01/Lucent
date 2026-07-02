@@ -175,8 +175,16 @@ export function VerifyPanel() {
             {displayAmount(result.amount)}
           </div>
           <p className="text-sm text-text-secondary">
-            The on-chain transfer <span className="font-mono text-xs">{result.event.txHash.slice(0, 10)}…</span> (ledger{" "}
-            {result.event.ledger}){" "}
+            The on-chain transfer{" "}
+            <a
+              href={`https://stellar.expert/explorer/testnet/tx/${result.event.txHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-mono text-xs text-accent/40 hover:text-accent-hover/50 hover:underline"
+            >
+              {result.event.txHash.slice(0, 10)}…
+            </a>{" "}
+            (ledger {result.event.ledger}){" "}
             {result.role === "recipient" ? "paid" : "was sent by"}{" "}
             <span className="font-mono text-xs">{result.disclosingAccount.slice(0, 8)}…</span> exactly this amount. You
             learned nothing else.

@@ -335,7 +335,15 @@ function AuditRowView({ row }: { row: AuditRow }) {
         )}
       </div>
       <div className="mt-1 text-xs text-text-muted/70">
-        ledger {ev.ledger} · tx <span className="font-mono">{ev.txHash.slice(0, 10)}…</span>
+        ledger {ev.ledger} · tx{" "}
+        <a
+          href={`https://stellar.expert/explorer/testnet/tx/${ev.txHash}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-mono text-accent/40 hover:text-accent-hover/50 hover:underline"
+        >
+          {ev.txHash.slice(0, 10)}…
+        </a>
       </div>
     </li>
   );

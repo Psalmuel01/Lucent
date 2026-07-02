@@ -15,6 +15,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useRouter } from "next/navigation";
 
 import { ConfidentialWallet, type WalletView } from "./wallet";
 import { errMsg } from "./err";
@@ -44,6 +45,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [lastSync, setLastSync] = useState<Date | null>(null);
+  const router = useRouter();
 
   const log = useCallback((msg: string) => {
     setLogs((prev) => [`${new Date().toLocaleTimeString()}  ${msg}`, ...prev].slice(0, 80));
@@ -83,7 +85,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setView(null);
     setLastSync(null);
     setError(null);
-  }, []);
+    router.push("/");
+  }, [router]);
 
   const value = useMemo(
     () => ({ wallet, view, connecting, error, logs, lastSync, connect, refresh, disconnect, log, setError }),
