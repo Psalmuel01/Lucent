@@ -137,9 +137,12 @@ The front-end (`packages/app`) is a dark, gold-accented Next.js app:
 
 ```bash
 pnpm install
-pnpm build:sdk               # the app imports @lucent/sdk from dist
 pnpm dev                     # http://localhost:3000
 ```
+
+`pnpm dev` and `pnpm build` both build `@lucent/sdk` first automatically (it's
+a workspace package the app imports from its compiled `dist/`, not from
+source) — no separate build step needed.
 
 Install [Freighter](https://freighter.app/), switch it to **Testnet**, and
 fund your account (Freighter's built-in friendbot). `next dev` already serves

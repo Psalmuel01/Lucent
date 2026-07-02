@@ -5,13 +5,13 @@
   "type": "module",
   "scripts": {
     "vendor:bb": "node ../../scripts/vendor-bb.mjs",
-    "predev": "pnpm vendor:bb",
+    "predev": "pnpm --filter @lucent/sdk build && pnpm vendor:bb",
     "dev": "next dev --webpack",
-    "prebuild": "pnpm vendor:bb",
+    "prebuild": "pnpm --filter @lucent/sdk build && pnpm vendor:bb",
     "build": "next build --webpack",
-    "build:cf": "opennextjs-cloudflare build",
-    "preview": "opennextjs-cloudflare build && wrangler dev",
-    "deploy:cf": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "build:cf": "pnpm --filter @lucent/sdk build && pnpm vendor:bb && opennextjs-cloudflare build",
+    "preview": "pnpm run build:cf && wrangler dev",
+    "deploy:cf": "pnpm run build:cf && opennextjs-cloudflare deploy",
     "start": "next start",
     "typecheck": "tsc --noEmit"
   },

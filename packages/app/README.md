@@ -30,8 +30,12 @@ lives in `lib/wallet.ts` — a `ConfidentialWallet` class over
 ## Run
 
 ```bash
-pnpm build:sdk && pnpm dev   # http://localhost:3000
+pnpm dev   # http://localhost:3000
 ```
+
+`predev`/`prebuild` build `@lucent/sdk` first automatically — it's a
+workspace package the app imports from its compiled `dist/`, not from
+source.
 
 The confidential `sk` is derived deterministically from a Freighter `signMessage` signature over a deployment-bound message (Ed25519 signatures are deterministic, so the key is recoverable on any device and useless on other deployments), then cached in `localStorage` — a production wallet would store it encrypted.
 
