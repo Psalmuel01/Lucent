@@ -3,6 +3,7 @@
  */
 import {
   isConnected,
+  isAllowed,
   requestAccess,
   signTransaction,
   signMessage as freighterSignMessage,
@@ -11,6 +12,22 @@ import type { Signer } from "@lucent/sdk";
 
 import { DEPLOYMENT } from "./deployment";
 import { errMsg } from "./err";
+
+/**
+ * Silent check (no popup): has this site already been granted access in a
+ * prior session? Used to auto-reconnect on mount instead of dropping back to
+ * a disconnected state on every reload — `requestAccess()` itself won't
+ * prompt either once this is true, so a full silent `connectFreighter()`
+ * follows safely.
+ */
+export async function freighterIsAllowed(): Promise<boolean> {
+  try {
+    const res = await isAllowed();
+    return res.isAllowed === true;
+  } catch {
+    return false;
+  }
+}
 
 /** A {@link Signer} that can also sign arbitrary UTF-8 messages (SEP-53). */
 export interface MessageSigner extends Signer {

@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, ChevronDown, ChevronRight, KeyRound } from "lucide-react";
+import { ArrowRight, ChevronDown, ChevronRight } from "lucide-react";
 import { LucentLogoMark } from "@/components/icons/LucentLogoMark";
+import { Callout } from "@/components/ui/Callout";
 import { DEPLOYMENT } from "@/lib/deployment";
 
 const SECTIONS = [
@@ -49,22 +50,6 @@ function H3({ children }: { children: React.ReactNode }) {
 
 function P({ children }: { children: React.ReactNode }) {
   return <p className="mb-4 text-[15px] leading-relaxed text-text-secondary">{children}</p>;
-}
-
-function Callout({ tone = "warning", children }: { tone?: "warning" | "key"; children: React.ReactNode }) {
-  const Icon = tone === "key" ? KeyRound : AlertTriangle;
-  return (
-    <div
-      className={`mb-4 flex items-start gap-2.5 rounded-2xl border px-4 py-3.5 ${
-        tone === "key" ? "border-accent/25 bg-accent/[0.06]" : "border-warning/25 bg-warning/[0.08]"
-      }`}
-    >
-      <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${tone === "key" ? "text-accent" : "text-warning"}`} />
-      <div className={`text-[13.5px] leading-relaxed ${tone === "key" ? "text-accent/90" : "text-warning/85"}`}>
-        {children}
-      </div>
-    </div>
-  );
 }
 
 function AddressRow({ name, addr }: { name: string; addr: string }) {

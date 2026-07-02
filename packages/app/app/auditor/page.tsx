@@ -6,10 +6,11 @@
  * carries. Pure key-and-events work: no wallet, no proving, no holder
  * cooperation — just the secret, pasted in.
  *
- * The secret never ships in the client bundle: it's typed in here, kept in
- * component state only (never persisted to storage), and gone the moment you
- * navigate away or reload. `deploy.ts` redacts it from the app's deployment
- * file for exactly this reason — see `lib/deployment.ts`.
+ * The secret never ships in the client bundle — `deploy.ts` redacts it from
+ * the app's deployment file for exactly this reason (see `lib/deployment.ts`).
+ * Once pasted in, it's remembered in this browser's localStorage (never sent
+ * anywhere) so an auditor doesn't have to keep re-pasting it every visit; any
+ * remembered key can be forgotten individually from the unlock screen.
  *
  * Beyond per-event amounts, the page replays the event stream into the
  * auditor's running view of every account (§8.1/§8.2): spendable balance from
@@ -18,6 +19,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { X } from "lucide-react";
 import {
   ChainClient,
   IndexerClient,
@@ -38,6 +40,7 @@ import { Input } from "@/components/ui/Input";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 import { Pill, type PillTone } from "@/components/ui/Pill";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { Callout } from "@/components/ui/Callout";
 import { displayAmount } from "@/lib/amount";
 import { DEPLOYMENT } from "@/lib/deployment";
 import { errMsg } from "@/lib/err";
@@ -156,10 +159,32 @@ function replay(events: ConfidentialEvent[], auditorSk: bigint): { rows: AuditRo
   };
 }
 
+/** Remembered auditor secrets, most-recent-first — see the module doc comment. */
+const SAVED_SECRETS_KEY = "lucent:auditor:secrets";
+const MAX_SAVED_SECRETS = 6;
+
+function loadSavedSecrets(): string[] {
+  try {
+    const raw = localStorage.getItem(SAVED_SECRETS_KEY);
+    return raw ? (JSON.parse(raw) as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveSavedSecrets(secrets: string[]): void {
+  localStorage.setItem(SAVED_SECRETS_KEY, JSON.stringify(secrets));
+}
+
 export default function AuditorPage() {
   const [secretInput, setSecretInput] = useState("");
   const [auditorSk, setAuditorSk] = useState<bigint | null>(null);
   const [keyError, setKeyError] = useState<string | null>(null);
+  const [savedSecrets, setSavedSecrets] = useState<string[]>([]);
+
+  useEffect(() => {
+    setSavedSecrets(loadSavedSecrets());
+  }, []);
 
   const [rows, setRows] = useState<AuditRow[] | null>(null);
   const [accounts, setAccounts] = useState<AccountView[]>([]);
@@ -168,14 +193,35 @@ export default function AuditorPage() {
 
   const hasIndexer = !!DEPLOYMENT.indexerUrl;
 
-  function unlock() {
+  function remember(secret: string) {
+    setSavedSecrets((prev) => {
+      const next = [secret, ...prev.filter((s) => s !== secret)].slice(0, MAX_SAVED_SECRETS);
+      saveSavedSecrets(next);
+      return next;
+    });
+  }
+
+  function forgetSecret(secret: string) {
+    setSavedSecrets((prev) => {
+      const next = prev.filter((s) => s !== secret);
+      saveSavedSecrets(next);
+      return next;
+    });
+  }
+
+  function unlockWith(secret: string) {
     setKeyError(null);
     try {
-      const sk = fromHex(secretInput.trim());
+      const sk = fromHex(secret.trim());
       setAuditorSk(sk);
+      remember(secret.trim());
     } catch {
       setKeyError("Not a valid hex secret key (expected a 0x… 32-byte scalar).");
     }
+  }
+
+  function unlock() {
+    unlockWith(secretInput);
   }
 
   function lock() {
@@ -227,10 +273,15 @@ export default function AuditorPage() {
       <div className="flex flex-col gap-5 px-4 pb-8 md:mx-auto md:max-w-2xl md:px-8">
         <p className="text-sm leading-relaxed text-text-secondary">
           Whoever holds a registered auditor's Grumpkin secret decrypts every transfer and withdrawal
-          addressed to that key — no wallet, no proofs, no account cooperation required. The key you
-          paste below never leaves this browser tab: it's held in memory only, never written to
-          storage, and gone the moment you lock the console or reload.
+          addressed to that key — no wallet, no proofs, no account cooperation required.
         </p>
+
+        {auditorSk === null && (
+          <Callout>
+            The key you paste below never leaves this browser: it&apos;s never sent anywhere, and any
+            key you unlock with is only remembered locally.
+          </Callout>
+        )}
 
         {auditorSk === null ? (
           <GlassCard padding="md" className="border-accent/25">
@@ -255,6 +306,32 @@ export default function AuditorPage() {
                 Unlock
               </Button>
             </div>
+
+            {savedSecrets.length > 0 && (
+              <div className="mt-4 flex flex-col gap-1.5">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-text-muted">Recent keys</span>
+                {savedSecrets.map((s) => (
+                  <div
+                    key={s}
+                    className="flex items-center justify-between gap-2 rounded-lg border border-border bg-white/[0.02] px-3 py-2"
+                  >
+                    <button
+                      onClick={() => unlockWith(s)}
+                      className="flex-1 truncate text-left font-mono text-[13px] text-text-secondary transition-colors hover:text-accent"
+                    >
+                      {shortAddr(s)}
+                    </button>
+                    <button
+                      onClick={() => forgetSecret(s)}
+                      aria-label="Forget this key"
+                      className="shrink-0 text-text-muted transition-colors hover:text-error"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </GlassCard>
         ) : (
           <>
