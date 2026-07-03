@@ -7,15 +7,16 @@
  * proof binds the confidential debit/credit to the same value.
  */
 
-import { xdr, Address, nativeToScVal } from "@stellar/stellar-sdk";
+import { xdr, Address, nativeToScVal, scValToNative } from "@stellar/stellar-sdk";
 
 import type { ChainClient, Signer, InvokeResult } from "./client.js";
-import { encodeRegisterData, encodeWithdrawData, encodeTransferData } from "./payload.js";
+import { encodeRegisterData, encodeWithdrawData, encodeTransferData, scvStruct } from "./payload.js";
 import type { RegisterWitness } from "../witness/register.js";
 import type { WithdrawWitness } from "../witness/withdraw.js";
 import type { TransferWitness } from "../witness/transfer.js";
 
 const addr = (a: string): xdr.ScVal => new Address(a).toScVal();
+const optAddr = (a: string | null): xdr.ScVal => (a ? addr(a) : xdr.ScVal.scvVoid());
 const i128 = (v: bigint): xdr.ScVal => nativeToScVal(v, { type: "i128" });
 
 /** `register(account, auditor_id, data)`. */
@@ -126,6 +127,46 @@ export function submitUnfreeze(
     client.cfg.contracts.token,
     "unfreeze",
     [addr(account), addr(operator)],
+    signer,
+  );
+}
+
+export interface ComplianceConfig {
+  /** Allowlist policy contract, or `null` when the gate is off. */
+  policy: string | null;
+  sacPassthrough: boolean;
+}
+
+/** `compliance_config() -> Option<ComplianceConfig>` — read-only. */
+export async function readComplianceConfig(client: ChainClient): Promise<ComplianceConfig | null> {
+  const scVal = await client.simulate(client.cfg.contracts.token, "compliance_config", []);
+  const n = scValToNative(scVal) as { policy?: string | null; sac_passthrough: boolean } | null | undefined;
+  if (n == null) return null;
+  return { policy: n.policy ?? null, sacPassthrough: n.sac_passthrough };
+}
+
+/**
+ * `set_compliance_config(config, operator)` — compliance-admin only. Rotates
+ * the allowlist gate (`policy`) and/or the underlying SAC `authorized()`
+ * passthrough live. Freeze is unaffected either way: `is_frozen` only goes
+ * dark when compliance was never configured at all, which isn't reachable
+ * once this has been called once — there's no "unconfigure," only re-set.
+ * Pass `policy: null` to turn the allowlist gate off entirely.
+ */
+export function submitSetComplianceConfig(
+  client: ChainClient,
+  signer: Signer,
+  policy: string | null,
+  sacPassthrough: boolean,
+  operator: string,
+): Promise<InvokeResult> {
+  return client.invoke(
+    client.cfg.contracts.token,
+    "set_compliance_config",
+    [
+      scvStruct({ policy: optAddr(policy), sac_passthrough: xdr.ScVal.scvBool(sacPassthrough) }),
+      addr(operator),
+    ],
     signer,
   );
 }

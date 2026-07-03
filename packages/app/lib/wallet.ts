@@ -89,6 +89,9 @@ import {
   submitPolicyRemove,
   readIsAllowed,
   readIsFrozen,
+  readComplianceConfig,
+  submitSetComplianceConfig,
+  type ComplianceConfig,
 } from "@lucent/sdk";
 import registerCircuit from "@lucent/sdk/circuits/register.json";
 import withdrawCircuit from "@lucent/sdk/circuits/withdraw.json";
@@ -278,6 +281,30 @@ export class ConfidentialWallet {
   /** Whether `account` is currently allowlisted (read-only). */
   async isAllowed(account: string): Promise<boolean> {
     return readIsAllowed(this.client, account);
+  }
+
+  /** Current compliance config (policy address + SAC passthrough), or `null` if never configured. */
+  async complianceConfig(): Promise<ComplianceConfig | null> {
+    return readComplianceConfig(this.client);
+  }
+
+  /**
+   * Turn the allowlist gate on or off. `enabled: true` wires the deployed
+   * policy contract back in (only previously-allowlisted addresses can
+   * register/transact); `false` disables the gate entirely so every address
+   * can register/transact freely. Freeze is unaffected by this either way —
+   * see the SDK's `submitSetComplianceConfig` doc comment.
+   */
+  async setCompliancePolicy(enabled: boolean, policyAddress: string): Promise<void> {
+    this.log(enabled ? "enabling allowlist gate…" : "disabling allowlist gate…");
+    const r = await submitSetComplianceConfig(
+      this.client,
+      this.signer,
+      enabled ? policyAddress : null,
+      false,
+      this.address,
+    );
+    this.log(`compliance config updated (tx ${r.hash.slice(0, 10)}…)`);
   }
 
   async transfer(to: string, amount: bigint, onPhase?: (p: TxPhase) => void): Promise<{ hash: string }> {

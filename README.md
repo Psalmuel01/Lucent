@@ -161,13 +161,18 @@ funding-to-settlement flow.
 
 **Compliance Policy** is a separate, admin-gated allowlist contract, wired
 onto the token via `ComplianceConfig` (from OpenZeppelin's confidential
-token compliance extension). Once wired, every deposit, transfer, receive,
-and withdraw checks the policy first — an account off the allowlist is
-rejected on-chain before any amount is touched. The same admin can also
-freeze a specific account outright, independent of the allowlist. Both are
-managed from the Auditor screen's Compliance panel by whoever holds the
-compliance-admin wallet set at deploy time; the contract enforces that
-itself, not the app.
+token compliance extension). When the gate is on, every register, deposit,
+transfer, receive, and withdraw checks the policy first — an account off the
+allowlist is rejected on-chain before any amount is touched. The same admin
+can also freeze a specific account outright, independent of the allowlist
+and independent of whether the gate is on. All three — the gate itself,
+allowlist membership, and freezing — are toggled live from the Auditor
+screen's Compliance panel by whoever holds the compliance-admin wallet set
+at deploy time; the contract enforces that itself, not the app. Turning the
+gate off is the practical default for demos: it makes every address free to
+register and transact immediately, with freeze still available as the
+exception mechanism, rather than requiring every tester to be allowlisted
+first.
 
 Lucent's confidential-token layer — the commitment scheme, the UltraHonk
 circuits, and the Poseidon2/Grumpkin crypto — is built on
@@ -291,12 +296,13 @@ Read from `deployments/testnet.json`, rewritten automatically by
 | Contract | ID |
 |---|---|
 | Underlying | USDC SAC `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA` (issuer `GBBD47IF…FLA5`) |
-| Confidential token | `CDQLYWKQYQ7QUUU6E5R4YTOZLEUN3OQ62GCS6SCCOLIL7SBT4T2MXPKU` |
-| Verifier | `CD7K5WUH7PYGFJLTD4TH7BIEO4TOJUZBLGQDJTTXKASI5TLPLO4R6KDY` |
-| Auditor | `CBJ43COFQXAWZNZTQQ6XD2T6WRKFAX37GKUD6D5RJE2Q2KLWIKAOVQ5V` (id `0` — demo key in the Docs page) |
-| PayrollVault | `CB4S4ARQVMDI6WUS7IT4VB2EEQBGRFWRS23Q4N765Y6UNLHNU6T4AUFV` |
-| PrivateEscrow factory | `CASFGRKYQNHJTI535X4KVXJOYJDKRGFTJDEPMJNR4WJMAQYVXY5GIOLI` |
+| Confidential token | `CACKEFUKVPBGDJM6Z4NOTY3H44MUMJDYIRNBLH6MDFN3QUSFWENXAABF` |
+| Verifier | `CAL32C7RZ5AB4IIYJBAH6XHPFZPFMUGMJ4ZDYQPOA3X7LX6EOJCZSTYN` |
+| Auditor | `CB6FOYTSTRCCBYZGOZJVNY5RGCT5LXEEPV5D2BZK7O3LMKSLLLQ7QRUQ` (id `0` — demo key in the Docs page) |
+| PayrollVault | `CCO6LMKLPJCWUQYDEHOY2EHYPITYOGT6JPKXIRHDXKEUYTXQEAJPPVVS` |
+| PrivateEscrow factory | `CCGJ5XEZDFSKJSLWEO7D22KZXOSPRNWE4R3RFO4SQBWPQ5RZ3WK7I2XS` |
 | PrivateEscrow instance wasm | `44c5852692374c24c5fe2cc6c9e7fcfa936418365ae352266182743794501306` |
+| Compliance Policy | `CB6Z7YIWYMKU3QUALYBJZMJEF72QRKBPFOCDHECPD3V5DCIRMU674UME` (gate is toggleable live from Auditor → Compliance — see the Compliance Policy section) |
 
 ## Acknowledgments
 

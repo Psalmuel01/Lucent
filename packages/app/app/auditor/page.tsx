@@ -496,6 +496,21 @@ function CompliancePanel() {
   const { run, busy } = useAction();
   const [addr, setAddr] = useState("");
   const [status, setStatus] = useState<{ address: string; allowed: boolean; frozen: boolean } | null>(null);
+  const [gateEnabled, setGateEnabled] = useState<boolean | null>(null);
+
+  const loadGateState = useCallback(async () => {
+    if (!wallet) return;
+    try {
+      const config = await wallet.complianceConfig();
+      setGateEnabled(config?.policy != null);
+    } catch (e) {
+      setError(errMsg(e));
+    }
+  }, [wallet, setError]);
+
+  useEffect(() => {
+    void loadGateState();
+  }, [loadGateState]);
 
   async function checkStatus() {
     if (!wallet || !addr.trim()) return;
@@ -515,9 +530,11 @@ function CompliancePanel() {
         <Pill tone="amber">admin-only</Pill>
       </div>
       <p className="mb-3 mt-3 text-xs leading-relaxed text-text-muted">
-        Accounts not on the allowlist cannot deposit, transfer, receive, or withdraw. Frozen accounts
-        are blocked outright regardless of allowlist status. Both are enforced on-chain by the token
-        contract, not by this page — only the compliance admin set at deploy time can act here.
+        {gateEnabled
+          ? "The allowlist gate is ON — only allowlisted accounts can register, deposit, transfer, receive, or withdraw."
+          : "The allowlist gate is OFF — every account can register and transact freely. Freeze still works independently, for a specific bad-actor account."}{" "}
+        Both are enforced on-chain by the token contract, not by this page — only the compliance
+        admin set at deploy time can act here.
       </p>
 
       {!wallet ? (
@@ -527,6 +544,32 @@ function CompliancePanel() {
       ) : (
         <div className="flex flex-col gap-3">
           <ErrorBanner error={error} onDismiss={() => setError(null)} size="sm" />
+
+          <div className="flex items-center justify-between rounded-xl border border-border bg-white/[0.02] px-3 py-2.5">
+            <div>
+              <span className="text-xs font-medium text-text-primary">Allowlist gate</span>
+              <p className="text-[11px] text-text-muted">
+                {gateEnabled === null ? "Checking…" : gateEnabled ? "Only allowlisted accounts can transact" : "Everyone can transact freely"}
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant={gateEnabled ? "danger" : "secondary"}
+              isLoading={busy === "gate" || gateEnabled === null}
+              onClick={() =>
+                run(
+                  "gate",
+                  async () => {
+                    await wallet.setCompliancePolicy(!gateEnabled, DEPLOYMENT.contracts.policy);
+                    await loadGateState();
+                  },
+                  { refresh: false },
+                )
+              }
+            >
+              {gateEnabled ? "Turn off" : "Turn on"}
+            </Button>
+          </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1">
               <Input
