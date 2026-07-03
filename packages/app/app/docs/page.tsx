@@ -137,7 +137,7 @@ export default function DocsPage() {
             <span className="text-sm text-text-muted">Docs</span>
           </Link>
           <Link
-            href="/shield"
+            href="/home"
             className="hidden items-center gap-1.5 rounded-full bg-accent px-4 py-1.5 text-xs font-semibold text-black transition-colors hover:bg-accent-hover sm:flex"
           >
             Launch App <ArrowRight className="h-3.5 w-3.5" />
@@ -417,22 +417,23 @@ fund(register_data, auditor_id, transfer_in)       // then this moves the money`
             amount.&quot; This one needs more: you re-derive the one-time ephemeral scalar your wallet
             used at send time from data still on the event itself, then prove you can reconstruct what
             the recipient decrypted. If that scalar isn&apos;t recoverable (old local state, a different
-            device), the transfer isn&apos;t disclosable as a sender — the Prove screen marks it
+            device), the transfer isn&apos;t disclosable as a sender — your Home activity feed marks it
             accordingly.
           </P>
           <H3>How it works</H3>
           <P>
-            On <strong>Verify</strong> (no wallet required — this can be anyone, even someone with no
-            Stellar account at all), click &quot;Create request&quot;: a fresh public key and nonce,
-            generated locally, that binds whatever proof comes back to this request specifically so it
-            can&apos;t be replayed against someone else. Copy the resulting JSON and send it to the
-            holder however you&apos;d normally share a file.
+            On the <strong>Prove</strong> screen (no wallet required — this can be anyone, even someone
+            with no Stellar account at all), click &quot;Create request&quot;: a fresh public key and
+            nonce, generated locally, that binds whatever proof comes back to this request specifically
+            so it can&apos;t be replayed against someone else. Copy the resulting JSON and send it to
+            the holder however you&apos;d normally share a file.
           </P>
           <P>
-            On <strong>Prove</strong>, the holder pastes that JSON against the relevant transfer from
-            their event list. The browser generates a zero-knowledge proof bound to it — a few seconds
-            of in-browser proving — and produces a bundle to copy back. Paste the bundle into Verify to
-            check it.
+            The holder pastes that JSON against the relevant transfer right in their{" "}
+            <strong>Home</strong> activity feed — a &quot;Prove&quot; action sits next to any transfer
+            that&apos;s disclosable. The browser generates a zero-knowledge proof bound to it — a few
+            seconds of in-browser proving — and produces a bundle to copy back. Paste the bundle into
+            the Prove screen to check it.
           </P>
           <H3>Why the verifier doesn&apos;t have to trust the bundle</H3>
           <P>

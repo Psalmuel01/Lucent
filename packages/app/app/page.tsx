@@ -147,7 +147,7 @@ export default function LandingPage() {
               About
             </Link>
             <Link
-              href="/shield"
+              href="/home"
               className="flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-black transition-colors hover:bg-accent-hover"
             >
               Launch App
@@ -191,7 +191,7 @@ export default function LandingPage() {
                   About
                 </Link>
                 <Link
-                  href="/shield"
+                  href="/home"
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex items-center justify-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-accent-hover"
                 >
@@ -242,7 +242,7 @@ export default function LandingPage() {
             </motion.p>
             <motion.div variants={fadeUp} className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <Link
-                href="/shield"
+                href="/home"
                 className="flex items-center justify-center gap-2 rounded-2xl bg-accent px-7 py-3.5 text-sm font-semibold text-black transition-colors hover:bg-accent-hover"
               >
                 Launch App

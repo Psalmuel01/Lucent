@@ -128,7 +128,7 @@ export function VerifyPanel() {
       <GlassCard padding="md">
         <SectionLabel>Your Request</SectionLabel>
         <p className="mt-3 text-xs text-text-muted">
-          Hand this to the holder; they disclose against it on the Prove tab. The nonce is one-time.
+          Hand this to the holder; they disclose against it from their Home screen. The nonce is one-time.
         </p>
         <div className="mt-3 flex items-center gap-2">
           <Button variant="secondary" disabled={!keys} onClick={mintRequest}>

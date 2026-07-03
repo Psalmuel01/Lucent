@@ -11,7 +11,6 @@ import { ProofStatusPill } from "@/components/ui/ProofStatusPill";
 import { TxStatus, type TxStep } from "@/components/ui/TxStatus";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 import { ProofLoadingOverlay } from "@/components/ui/ProofLoadingOverlay";
-import { Skeleton } from "@/components/ui/Skeleton";
 import { useWallet } from "@/lib/wallet-context";
 import { useRequireWallet } from "@/lib/use-require-wallet";
 import { ConnectPrompt } from "@/components/ui/ConnectPrompt";
@@ -102,35 +101,6 @@ export default function ShieldPage() {
         className="flex flex-col gap-5 px-4 pb-6 md:mx-auto md:max-w-2xl md:px-8"
       >
         <ErrorBanner error={error} onDismiss={() => setError(null)} />
-
-        {/* Balances */}
-        <GlassCard padding="md">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <div className="text-[11px] uppercase tracking-widest text-text-muted">Spendable</div>
-              {view ? (
-                <div className="mt-0.5 font-display text-2xl font-bold tabular-nums text-text-primary">
-                  {displayAmount(spendable)}
-                </div>
-              ) : (
-                <Skeleton className="mt-1 h-7 w-20" />
-              )}
-            </div>
-            <div>
-              <div className="text-[11px] uppercase tracking-widest text-text-muted">Receiving</div>
-              {view ? (
-                <div className="mt-0.5 font-display text-2xl font-bold tabular-nums text-text-primary">
-                  {displayAmount(receiving)}
-                </div>
-              ) : (
-                <Skeleton className="mt-1 h-7 w-20" />
-              )}
-            </div>
-          </div>
-          <p className="mt-3 text-xs text-text-muted">
-            {registered ? `synced through ledger ${view?.syncedLedger}` : "not registered yet"}
-          </p>
-        </GlassCard>
 
         {!registered ? (
           <GlassCard padding="md">

@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowDownUp, Send, Briefcase, Lock, ScanEye, ScanLine, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, ArrowDownUp, Send, Briefcase, Lock, ScanEye, ScanLine, Settings, LogOut } from "lucide-react";
 import { LucentLogoMark } from "@/components/icons/LucentLogoMark";
 import { useWallet } from "@/lib/wallet-context";
 import { shortAddress } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
 const NAV_ITEMS = [
+  { href: "/home", icon: LayoutDashboard, label: "Home" },
   { href: "/shield", icon: ArrowDownUp, label: "Shield" },
   { href: "/send", icon: Send, label: "Send" },
   { href: "/payroll", icon: Briefcase, label: "Payroll" },
