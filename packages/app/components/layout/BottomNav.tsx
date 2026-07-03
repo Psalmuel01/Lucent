@@ -31,7 +31,7 @@ const PRIMARY_TABS = [
 
 const MORE_ITEMS = [
   { href: "/escrow", icon: Lock, label: "Escrow", desc: "Private escrows with optional arbitration" },
-  { href: "/prove", icon: ScanLine, label: "Prove", desc: "Selective disclosure for transfers" },
+  { href: "/verify", icon: ScanLine, label: "Verify", desc: "Verify a disclosed transfer amount" },
   { href: "/auditor", icon: ScanEye, label: "Auditor", desc: "Decrypt all transaction amounts" },
   { href: "/profile", icon: Settings, label: "Profile", desc: "Wallet settings and key info" },
 ];

@@ -422,7 +422,7 @@ fund(register_data, auditor_id, transfer_in)       // then this moves the money`
           </P>
           <H3>How it works</H3>
           <P>
-            On the <strong>Prove</strong> screen (no wallet required — this can be anyone, even someone
+            On the <strong>Verify</strong> screen (no wallet required — this can be anyone, even someone
             with no Stellar account at all), click &quot;Create request&quot;: a fresh public key and
             nonce, generated locally, that binds whatever proof comes back to this request specifically
             so it can&apos;t be replayed against someone else. Copy the resulting JSON and send it to
@@ -433,7 +433,7 @@ fund(register_data, auditor_id, transfer_in)       // then this moves the money`
             <strong>Home</strong> activity feed — a &quot;Prove&quot; action sits next to any transfer
             that&apos;s disclosable. The browser generates a zero-knowledge proof bound to it — a few
             seconds of in-browser proving — and produces a bundle to copy back. Paste the bundle into
-            the Prove screen to check it.
+            the Verify screen to check it.
           </P>
           <H3>Why the verifier doesn&apos;t have to trust the bundle</H3>
           <P>

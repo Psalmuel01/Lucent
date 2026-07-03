@@ -16,6 +16,7 @@ import { AddressDisplay } from "@/components/ui/AddressDisplay";
 import { Modal } from "@/components/ui/Modal";
 import { Pill } from "@/components/ui/Pill";
 import { ProofLoadingOverlay } from "@/components/ui/ProofLoadingOverlay";
+import { Callout } from "@/components/ui/Callout";
 import { useWallet } from "@/lib/wallet-context";
 import { useRequireWallet } from "@/lib/use-require-wallet";
 import { ConnectPrompt } from "@/components/ui/ConnectPrompt";
@@ -193,6 +194,7 @@ export default function PayrollPage() {
 
   const receiving = view?.receiving ?? 0n;
   const hasClaim = receiving > 0n;
+  const registered = view?.registered ?? false;
 
   return (
     <AppShell>
@@ -201,7 +203,7 @@ export default function PayrollPage() {
         showBack={false}
         right={
           topTab === "employer" && employerTab === "templates" ? (
-            <Button size="sm" variant="secondary" onClick={() => setShowNewTemplate(true)}>
+            <Button size="sm" variant="secondary" disabled={!registered} onClick={() => setShowNewTemplate(true)}>
               <Plus className="h-3.5 w-3.5" /> New
             </Button>
           ) : null
@@ -210,6 +212,13 @@ export default function PayrollPage() {
 
       <div className="flex flex-col gap-5 px-4 pb-24 md:mx-auto md:max-w-2xl md:px-8 md:pb-8">
         <ErrorBanner error={error} onDismiss={() => setError(null)} />
+
+        {!registered && topTab === "employer" && (
+          <Callout>
+            You need to register your confidential account before you can create payroll templates or
+            runs — head to <strong>Home</strong> to register, a one-time proof.
+          </Callout>
+        )}
 
         <div className="flex gap-2 rounded-2xl border border-border bg-card p-1">
           {(["employer", "employee"] as TopTab[]).map((t) => (
@@ -248,7 +257,7 @@ export default function PayrollPage() {
                 <p className="py-12 text-center text-sm text-text-muted">Loading…</p>
               ) : templates.length === 0 ? (
                 <EmptyState icon={Briefcase} label="No templates yet">
-                  <Button onClick={() => setShowNewTemplate(true)}>
+                  <Button disabled={!registered} onClick={() => setShowNewTemplate(true)}>
                     <Plus className="h-4 w-4" /> Create Template
                   </Button>
                 </EmptyState>

@@ -13,6 +13,7 @@ import { AddressDisplay } from "@/components/ui/AddressDisplay";
 import { Modal } from "@/components/ui/Modal";
 import { Pill, type PillTone } from "@/components/ui/Pill";
 import { ProofLoadingOverlay } from "@/components/ui/ProofLoadingOverlay";
+import { Callout } from "@/components/ui/Callout";
 import { useWallet } from "@/lib/wallet-context";
 import { useRequireWallet } from "@/lib/use-require-wallet";
 import { ConnectPrompt } from "@/components/ui/ConnectPrompt";
@@ -53,7 +54,7 @@ const TIMEOUT_OPTIONS = [
 
 export default function EscrowPage() {
   const wallet = useRequireWallet();
-  const { error, setError } = useWallet();
+  const { view, error, setError } = useWallet();
   const { run, busy, phase } = useAction();
 
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -150,13 +151,15 @@ export default function EscrowPage() {
     }, { refresh: false }).then(reload);
   }
 
+  const registered = view?.registered ?? false;
+
   return (
     <AppShell>
       <PageHeader
         title="Escrow"
         showBack={false}
         right={
-          <Button size="sm" variant="secondary" onClick={() => setShowCreate(true)}>
+          <Button size="sm" variant="secondary" disabled={!registered} onClick={() => setShowCreate(true)}>
             New
           </Button>
         }
@@ -164,6 +167,13 @@ export default function EscrowPage() {
 
       <div className="flex flex-col gap-5 px-4 pb-6 md:mx-auto md:max-w-2xl md:px-8">
         <ErrorBanner error={error} onDismiss={() => setError(null)} />
+
+        {!registered && (
+          <Callout>
+            You need to register your confidential account before you can create an escrow — head to{" "}
+            <strong>Home</strong> to register, a one-time proof.
+          </Callout>
+        )}
 
         <div className="flex flex-wrap gap-2">
           {(["all", "depositor", "recipient", "arbiter"] as Filter[]).map((f) => (
@@ -188,7 +198,7 @@ export default function EscrowPage() {
               <Lock className="h-6 w-6 text-text-muted" />
             </div>
             <p className="text-sm text-text-muted">No escrows yet</p>
-            <Button onClick={() => setShowCreate(true)}>Create Escrow</Button>
+            <Button disabled={!registered} onClick={() => setShowCreate(true)}>Create Escrow</Button>
           </div>
         ) : (
           <div className="flex flex-col gap-3">

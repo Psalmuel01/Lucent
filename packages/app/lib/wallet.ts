@@ -74,6 +74,10 @@ import {
   scalarMul,
   H,
   pointCoords,
+  ecdh,
+  frMod,
+  poseidonWithDomain,
+  DOMAIN,
   type ConfidentialEvent,
   type TransferEvent,
   type DisclosureRequest,
@@ -559,11 +563,19 @@ export class ConfidentialWallet {
    * Other accounts with a `register` event — the way to enumerate possible
    * transfer recipients. With an indexer this covers the full history; without
    * one, an account registered more than ~7 days ago won't appear.
+   *
+   * Filtered to `G...` keypair addresses only. Contracts register too — every
+   * PrivateEscrow instance is its own confidential account (`C...`), since
+   * that's how it holds a balance — but Send is for paying people, not for
+   * transferring straight into an arbitrary escrow's custody outside its own
+   * fund flow, so those addresses are excluded here.
    */
   async registeredRecipients(): Promise<string[]> {
     const seen = new Set<string>();
     for (const ev of await this.fetchAllEvents()) {
-      if (ev.type === "register" && ev.account !== this.address) seen.add(ev.account);
+      if (ev.type === "register" && ev.account !== this.address && ev.account.startsWith("G")) {
+        seen.add(ev.account);
+      }
     }
     return [...seen];
   }
@@ -675,6 +687,30 @@ export class ConfidentialWallet {
     });
     this.log(`disclosure proof ready for event in tx ${event.txHash.slice(0, 10)}…`);
     return bundle;
+  }
+
+  /**
+   * Decrypt a transfer's amount for the account itself — not a disclosure to
+   * a third party, no proof, just showing the owner their own plaintext.
+   * Received transfers decrypt directly with the owner's own viewing key (no
+   * extra round trip); sent transfers additionally need the recipient's
+   * public viewing key to reconstruct what they decrypted — the same lookup
+   * `discloseSent` makes. Returns `null` if the transfer can't be attributed
+   * to this wallet (e.g. it didn't use the deterministic ephemeral scalar).
+   */
+  async decryptOwnTransferAmount(event: TransferEvent): Promise<bigint | null> {
+    if (event.to === this.address) {
+      return this.engine.decryptIncoming(event.rE, event.vTilde, event.sigma).vTx;
+    }
+    if (event.from === this.address) {
+      const rEScalar = this.recoverRE(event);
+      if (rEScalar === null) return null;
+      const recipient = await this.client.confidentialBalance(event.to);
+      if (!recipient) return null;
+      const s = ecdh(rEScalar, recipient.viewingPublicKey);
+      return frMod(event.vTilde - poseidonWithDomain(DOMAIN.TX_AMOUNT, [s, event.sigma]));
+    }
+    return null;
   }
 
   /**

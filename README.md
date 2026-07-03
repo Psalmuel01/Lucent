@@ -63,8 +63,8 @@ fund your account (Freighter's built-in friendbot). `next dev` already serves
 the cross-origin-isolation headers in-browser proving needs, so there's
 nothing extra to configure locally.
 
-Home, Shield, Send, Auditor, and Prove work immediately against the deployment
-in `deployments/testnet.json`. **Payroll and Escrow** show a "not configured"
+Home, Shield, Send, Auditor, and Verify work immediately against the
+deployment in `deployments/testnet.json`. **Payroll and Escrow** show a "not configured"
 notice until their contracts are deployed ([below](#deploying)) — after which
 they light up automatically, no code change needed. Want to see the
 compliance view without deploying anything yourself? The in-app **Docs**
@@ -171,17 +171,18 @@ the entire product front-end are Lucent's own.
 The front-end (`packages/app`) is a dark, gold-accented Next.js app:
 
 - **Landing, Docs, About** — the public marketing surface.
-- **Home · Shield · Send · Payroll · Escrow · Auditor · Prove · Profile** —
+- **Home · Shield · Send · Payroll · Escrow · Auditor · Verify · Profile** —
   the app, reachable from a sidebar (desktop) or bottom nav (mobile: five
-  primary tabs plus a "More" sheet for Escrow, Prove, Auditor, and Profile),
+  primary tabs plus a "More" sheet for Escrow, Verify, Auditor, and Profile),
   all one tap from each other — none of them redirect. Home is the default
   landing screen after connecting: balances, quick actions, and recent
-  activity at a glance, including the "Prove" action on your own transfers
+  activity at a glance, including a "Prove" action on your own transfers
   right where they are in the feed. Shield, Send, Payroll, Escrow, Home, and
   Profile need a connected wallet and show an inline connect prompt in place
-  of their content until one's attached; Auditor and Prove need no wallet at
-  all — Prove is purely the verifier side now (mint a request, verify a
-  returned bundle), since the holder side of disclosure lives on Home.
+  of their content until one's attached; Auditor and Verify need no wallet
+  at all — Verify is purely the verifier side of selective disclosure now
+  (mint a request, check a returned bundle), since the holder side (proving)
+  lives on Home, next to the transfer it's about.
 - A shared component library (glass cards, proof-loading overlays, encrypted
   badges, a numeric keypad, tx-status steppers) and a `ConfidentialWallet`
   client class wrapping the SDK's crypto, proving, chain, and state layers.
@@ -239,8 +240,9 @@ A full end-to-end walkthrough, real proofs on testnet:
    salaries, execute; then **Auditor** decrypts every salary amount.
 4. **Escrow** — deploy + fund an escrow (two wallet confirmations); walk it
    through mark-completed → release (or dispute → resolve).
-5. **Prove** — mint a request on the Prove screen, disclose the matching
-   transfer from Home's activity feed, verify the returned bundle.
+5. **Selective disclosure** — mint a request on the Verify screen, disclose
+   the matching transfer from Home's activity feed, verify the returned
+   bundle back on Verify.
 
 ## Architecture
 

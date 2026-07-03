@@ -26,6 +26,7 @@ import {
 } from "@lucent/sdk";
 import type { ConfidentialWallet } from "@/lib/wallet";
 import { AppShell } from "@/components/layout/AppShell";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
 import { SectionLabel } from "@/components/ui/SectionLabel";
@@ -47,7 +48,7 @@ const QUICK_ACTIONS = [
   { href: "/payroll", icon: Briefcase, label: "Payroll" },
   { href: "/escrow", icon: Lock, label: "Escrow" },
   { href: "/auditor", icon: ScanEye, label: "Auditor" },
-  { href: "/prove", icon: ScanLine, label: "Prove" },
+  { href: "/verify", icon: ScanLine, label: "Verify" },
 ];
 
 /**
@@ -78,7 +79,16 @@ function describeEvent(ev: ConfidentialEvent, me: string): { icon: IconType; ico
   }
 }
 
-function ActivityRow({ ev, wallet }: { ev: ConfidentialEvent; wallet: ConfidentialWallet }) {
+function ActivityRow({
+  ev,
+  wallet,
+  decryptedAmount,
+}: {
+  ev: ConfidentialEvent;
+  wallet: ConfidentialWallet;
+  /** `undefined` = still decrypting, `null` = couldn't be attributed to this wallet. */
+  decryptedAmount?: bigint | null;
+}) {
   const me = wallet.address;
   const { icon: Icon, iconColor, label } = describeEvent(ev, me);
   const [proveOpen, setProveOpen] = useState(false);
@@ -110,7 +120,14 @@ function ActivityRow({ ev, wallet }: { ev: ConfidentialEvent; wallet: Confidenti
           <div className="text-xs text-text-muted">{relativeLedger(ev.ledger)}</div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {ev.type === "transfer" && <EncryptedBadge />}
+          {ev.type === "transfer" &&
+            (decryptedAmount === undefined ? (
+              <Skeleton className="h-4 w-16" />
+            ) : decryptedAmount === null ? (
+              <EncryptedBadge />
+            ) : (
+              <span className={cn("font-mono text-sm", iconColor)}>{displayAmount(decryptedAmount)}</span>
+            ))}
           {ev.type === "deposit" && (
             <span className="font-mono text-sm text-accent">{displayAmount(ev.amount)}</span>
           )}
@@ -147,9 +164,12 @@ export function HomeClient() {
   const [syncing, setSyncing] = useState(false);
   const [merging, setMerging] = useState(false);
   const [mergeSteps, setMergeSteps] = useState<TxStep[]>([]);
+  const [registering, setRegistering] = useState(false);
+  const [registerSteps, setRegisterSteps] = useState<TxStep[]>([]);
 
   const [activity, setActivity] = useState<ConfidentialEvent[] | null>(null);
   const [activityLoading, setActivityLoading] = useState(true);
+  const [decryptedAmounts, setDecryptedAmounts] = useState<Map<string, bigint | null>>(new Map());
 
   useEffect(() => {
     if (!wallet) return;
@@ -195,6 +215,34 @@ export function HomeClient() {
     };
   }, [wallet]);
 
+  // Decrypt each transfer's amount for display — this is the account's own
+  // data, so there's no reason to keep it hidden from the owner the way it's
+  // hidden from everyone else. Received transfers decrypt with just the
+  // owner's own key; sent transfers need one extra RPC lookup per event (the
+  // recipient's viewing key), so this runs as its own effect rather than
+  // blocking the activity list from rendering.
+  useEffect(() => {
+    if (!wallet || !activity) return;
+    const transfers = activity.filter((ev): ev is TransferEvent => ev.type === "transfer");
+    if (transfers.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(
+        transfers.map(async (ev): Promise<[string, bigint | null]> => {
+          try {
+            return [ev.cursor, await wallet.decryptOwnTransferAmount(ev)];
+          } catch {
+            return [ev.cursor, null];
+          }
+        }),
+      );
+      if (!cancelled) setDecryptedAmounts(new Map(entries));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [wallet, activity]);
+
   async function handleSync() {
     setSyncing(true);
     try {
@@ -219,10 +267,26 @@ export function HomeClient() {
     }
   }
 
+  async function handleRegister() {
+    setRegisterSteps([{ id: "register", label: "Prove key ownership", status: "active", estSeconds: 4 }]);
+    setRegistering(true);
+    try {
+      await wallet!.register();
+      setRegisterSteps((s) => s.map((x) => ({ ...x, status: "done" })));
+      await refresh();
+    } catch {
+      setRegisterSteps((s) => s.map((x) => ({ ...x, status: "error" })));
+    } finally {
+      setRegistering(false);
+      setTimeout(() => setRegisterSteps([]), 1500);
+    }
+  }
+
   if (!wallet) {
     if (connecting) {
       return (
         <AppShell>
+          <PageHeader title="Home" showBack={false} />
           <div className="flex flex-col items-center gap-5 px-4 py-20 text-center">
             <LucentLogoMark size={56} showBg={false} />
           </div>
@@ -231,6 +295,7 @@ export function HomeClient() {
     }
     return (
       <AppShell>
+        <PageHeader title="Home" showBack={false} />
         <div className="flex flex-col items-center gap-5 px-4 py-20 text-center">
           <LucentLogoMark size={56} showBg={false} />
           <div>
@@ -249,11 +314,46 @@ export function HomeClient() {
 
   const spendable = view?.spendable ?? 0n;
   const receiving = view?.receiving ?? 0n;
+  const registered = view?.registered ?? false;
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
+  if (!registered) {
+    return (
+      <AppShell>
+        <PageHeader title="Home" showBack={false} />
+        <div className="flex flex-col gap-5 px-4 pb-8 animate-fade-in-up md:mx-auto md:max-w-2xl md:px-8">
+          <ErrorBanner error={error} onDismiss={() => setError(null)} />
+
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-text-muted">{greeting}</span>
+            <span className="font-mono text-xs text-text-secondary">{shortAddress(wallet.address, 5)}</span>
+          </div>
+
+          <div className="flex flex-col items-center gap-5 px-4 py-12 text-center">
+            <LucentLogoMark size={56} showBg={false} />
+            <div>
+              <h2 className="mb-2 font-display text-xl font-semibold text-text-primary">Register to continue</h2>
+              <p className="max-w-xs text-sm text-text-secondary">
+                Bind your confidential keys to the contract — a one-time proof. Everything else
+                unlocks after this: balances, sending, payroll, escrow.
+              </p>
+            </div>
+            <div className="flex w-full max-w-xs flex-col gap-3">
+              {registerSteps.length > 0 && <TxStatus steps={registerSteps} />}
+              <Button fullWidth size="lg" isLoading={registering} onClick={handleRegister}>
+                {registering ? "Registering…" : "Register"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell>
+      <PageHeader title="Home" showBack={false} />
       <div className="flex flex-col gap-5 px-4 pb-8 animate-fade-in-up md:mx-auto md:max-w-2xl md:px-8">
         <ErrorBanner error={error} onDismiss={() => setError(null)} />
 
@@ -265,32 +365,34 @@ export function HomeClient() {
 
         {/* Balance overview */}
         <GlassCard padding="md">
-          <div className="flex flex-col gap-5">
-            {/* Spendable */}
-            <div>
-              <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.35em] text-text-muted">
-                Spendable
-              </span>
-              <div className="mt-1 font-display text-4xl font-bold tabular-nums text-text-primary">
-                {displayAmount(spendable)}
+          <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.35em] text-text-muted">
+                  Spendable
+                </span>
+                <div className="mt-1 font-display text-2xl font-bold tabular-nums text-text-primary">
+                  {displayAmount(spendable)}
+                </div>
+              </div>
+              <div>
+                <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.35em] text-text-muted">
+                  Receiving
+                </span>
+                <div className="mt-1 font-display text-2xl font-bold tabular-nums text-text-primary">
+                  {displayAmount(receiving)}
+                </div>
               </div>
             </div>
 
-            {/* Receiving */}
-            <div>
-              <span className="text-xs font-medium text-text-muted">Receiving</span>
-              <div className="mt-1 font-display text-2xl font-bold tabular-nums text-text-primary">
-                {displayAmount(receiving)}
+            {receiving > 0n && (
+              <div className="flex flex-col gap-2">
+                <Button size="sm" variant="secondary" isLoading={merging} onClick={handleMerge}>
+                  Merge into spendable
+                </Button>
+                {mergeSteps.length > 0 && <TxStatus steps={mergeSteps} />}
               </div>
-              {receiving > 0n && (
-                <div className="mt-2 flex flex-col gap-2">
-                  <Button size="sm" variant="secondary" isLoading={merging} onClick={handleMerge}>
-                    Merge into spendable
-                  </Button>
-                  {mergeSteps.length > 0 && <TxStatus steps={mergeSteps} />}
-                </div>
-              )}
-            </div>
+            )}
 
             {/*
               "Pending payroll claims" was in the original design here, but
@@ -302,7 +404,7 @@ export function HomeClient() {
               the same number under a different label.
             */}
 
-            <div className="glow-divider" />
+            {/* <div className="glow-divider" /> */}
 
             <div className="flex items-center justify-between">
               <span className="text-xs text-text-muted">
@@ -361,7 +463,7 @@ export function HomeClient() {
             <GlassCard padding="md">
               <ul className="flex flex-col">
                 {activity.map((ev) => (
-                  <ActivityRow key={ev.cursor} ev={ev} wallet={wallet} />
+                  <ActivityRow key={ev.cursor} ev={ev} wallet={wallet} decryptedAmount={decryptedAmounts.get(ev.cursor)} />
                 ))}
               </ul>
             </GlassCard>

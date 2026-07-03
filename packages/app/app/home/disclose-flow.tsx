@@ -5,8 +5,8 @@
  * inline to a transfer's activity row: paste a verifier's request (P_R, ν),
  * generate a D-recipient or D-sender proof in-browser, copy the bundle back.
  * No amount ever goes on-chain. Moved here from a standalone /prove tab so
- * disclosing lives right next to the transfer it's about — /prove is now the
- * verifier-only side of this exchange.
+ * disclosing lives right next to the transfer it's about — /verify is now
+ * the verifier-only side of this exchange.
  */
 
 import { useCallback, useState } from "react";

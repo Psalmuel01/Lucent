@@ -15,7 +15,7 @@ const NAV_ITEMS = [
   { href: "/payroll", icon: Briefcase, label: "Payroll" },
   { href: "/escrow", icon: Lock, label: "Escrow" },
   { href: "/auditor", icon: ScanEye, label: "Auditor" },
-  { href: "/prove", icon: ScanLine, label: "Prove" },
+  { href: "/verify", icon: ScanLine, label: "Verify" },
 ];
 
 export function Sidebar() {

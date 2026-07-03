@@ -17,7 +17,7 @@ export function PageHeader({ title, showBack = true, onBack, right, className }:
 
   return (
     <header className={cn("flex items-center gap-3 px-4 pt-14 pb-4 md:px-8 md:pt-8", className)}>
-      {(showBack || onBack) && (
+      {showBack && (
         <button
           onClick={() => (onBack ? onBack() : router.back())}
           aria-label="Go back"
