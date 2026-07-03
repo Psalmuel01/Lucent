@@ -46,6 +46,11 @@ import { displayAmount } from "@/lib/amount";
 import { DEPLOYMENT } from "@/lib/deployment";
 import { errMsg } from "@/lib/err";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { useWallet } from "@/lib/wallet-context";
+import { useAction } from "@/lib/use-action";
+import { cn } from "@/lib/cn";
+
+type Tab = "decrypt" | "compliance";
 
 /** One decrypted line of the auditor's ledger. */
 interface AuditRow {
@@ -178,6 +183,7 @@ function saveSavedSecrets(secrets: string[]): void {
 }
 
 export default function AuditorPage() {
+  const [tab, setTab] = useState<Tab>("decrypt");
   const [secretInput, setSecretInput] = useState("");
   const [auditorSk, setAuditorSk] = useState<bigint | null>(null);
   const [keyError, setKeyError] = useState<string | null>(null);
@@ -270,11 +276,34 @@ export default function AuditorPage() {
   const transferRows = rows?.filter((r) => r.ev.type === "transfer" && r.channelsAgree) ?? [];
   const totalVolume = transferRows.reduce((sum, r) => sum + (r.amount ?? 0n), 0n);
 
+  const hasCompliance = !!DEPLOYMENT.contracts.policy;
+
   return (
     <AppShell>
       <PageHeader title="Auditor" showBack={false} />
 
       <div className="flex flex-col gap-5 px-4 pb-8 md:mx-auto md:max-w-2xl md:px-8">
+        {hasCompliance && (
+          <div className="flex gap-2 rounded-2xl border border-border bg-card p-1">
+            {(["decrypt", "compliance"] as Tab[]).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={cn(
+                  "flex-1 rounded-xl py-2.5 text-sm font-medium capitalize transition-all duration-200",
+                  tab === t ? "bg-accent text-black" : "text-text-muted hover:text-text-secondary",
+                )}
+              >
+                {t === "decrypt" ? "Decrypt" : "Compliance"}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {tab === "compliance" && hasCompliance ? (
+          <CompliancePanel />
+        ) : (
+          <>
         <p className="text-sm leading-relaxed text-text-secondary">
           Whoever holds a registered auditor's Grumpkin secret decrypts every transfer and withdrawal
           addressed to that key — no wallet, no proofs, no account cooperation required.
@@ -436,6 +465,9 @@ export default function AuditorPage() {
                 </ul>
               )}
             </GlassCard>
+
+          </>
+        )}
           </>
         )}
 
@@ -444,6 +476,119 @@ export default function AuditorPage() {
         </footer>
       </div>
     </AppShell>
+  );
+}
+
+/**
+ * Freeze/unfreeze + allowlist management. Separate from the key-paste
+ * decryption flow above: those are Grumpkin viewing keys, but compliance
+ * actions are real on-chain transactions the token's `#[only_admin]` check
+ * gates — they need a connected, signing Freighter wallet, not the auditor
+ * secret. The app doesn't duplicate that authorization check; a connected
+ * wallet that isn't the admin will just have its transaction rejected
+ * on-chain, surfaced here as an error like anywhere else in the app.
+ */
+function CompliancePanel() {
+  const { wallet, connect, connecting, error, setError } = useWallet();
+  const { run, busy } = useAction();
+  const [addr, setAddr] = useState("");
+  const [status, setStatus] = useState<{ address: string; allowed: boolean; frozen: boolean } | null>(null);
+
+  async function checkStatus() {
+    if (!wallet || !addr.trim()) return;
+    setError(null);
+    try {
+      const [allowed, frozen] = await Promise.all([wallet.isAllowed(addr.trim()), wallet.isFrozen(addr.trim())]);
+      setStatus({ address: addr.trim(), allowed, frozen });
+    } catch (e) {
+      setError(errMsg(e));
+    }
+  }
+
+  return (
+    <GlassCard padding="md" className="border-warning/25">
+      <div className="mb-1 flex items-center justify-between">
+        <SectionLabel>Compliance</SectionLabel>
+        <Pill tone="amber">admin-only</Pill>
+      </div>
+      <p className="mb-3 mt-3 text-xs leading-relaxed text-text-muted">
+        Accounts not on the allowlist cannot deposit, transfer, receive, or withdraw. Frozen accounts
+        are blocked outright regardless of allowlist status. Both are enforced on-chain by the token
+        contract, not by this page — only the compliance admin set at deploy time can act here.
+      </p>
+
+      {!wallet ? (
+        <Button fullWidth isLoading={connecting} onClick={connect}>
+          Connect Freighter to manage compliance
+        </Button>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <ErrorBanner error={error} onDismiss={() => setError(null)} size="sm" />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="flex-1">
+              <Input
+                label="Account address"
+                placeholder="G…"
+                value={addr}
+                onChange={(e) => setAddr(e.target.value)}
+                className="font-mono"
+              />
+            </div>
+            <Button variant="secondary" onClick={checkStatus} disabled={!addr.trim()}>
+              Check status
+            </Button>
+          </div>
+
+          {status && status.address === addr.trim() && (
+            <div className="flex items-center gap-2 text-xs text-text-muted">
+              <span>allowlisted:</span>
+              <Pill tone={status.allowed ? "green" : "neutral"}>{status.allowed ? "yes" : "no"}</Pill>
+              <span>frozen:</span>
+              <Pill tone={status.frozen ? "red" : "neutral"}>{status.frozen ? "yes" : "no"}</Pill>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={!addr.trim()}
+              isLoading={busy === "policyAdd"}
+              onClick={() => run("policyAdd", async () => { await wallet.policyAdd(addr.trim()); await checkStatus(); }, { refresh: false })}
+            >
+              Allow
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={!addr.trim()}
+              isLoading={busy === "policyRemove"}
+              onClick={() => run("policyRemove", async () => { await wallet.policyRemove(addr.trim()); await checkStatus(); }, { refresh: false })}
+            >
+              Remove
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={!addr.trim()}
+              isLoading={busy === "freeze"}
+              onClick={() => run("freeze", async () => { await wallet.freeze(addr.trim()); await checkStatus(); }, { refresh: false })}
+            >
+              Freeze
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={!addr.trim()}
+              isLoading={busy === "unfreeze"}
+              onClick={() => run("unfreeze", async () => { await wallet.unfreeze(addr.trim()); await checkStatus(); }, { refresh: false })}
+            >
+              Unfreeze
+            </Button>
+          </div>
+        </div>
+      )}
+    </GlassCard>
   );
 }
 

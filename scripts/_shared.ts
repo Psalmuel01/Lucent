@@ -23,6 +23,8 @@ export const WASM = {
   payroll: join(REPO_ROOT, "packages/sdk/contracts/payroll_vault.wasm"),
   escrowInstance: join(REPO_ROOT, "packages/sdk/contracts/private_escrow_instance.wasm"),
   escrowFactory: join(REPO_ROOT, "packages/sdk/contracts/private_escrow_factory.wasm"),
+  // Compliance allowlist policy — wired onto the token via set_compliance_config.
+  policy: join(REPO_ROOT, "packages/sdk/contracts/confidential_policy.wasm"),
 };
 
 export const VKS_DIR = join(REPO_ROOT, "packages/sdk/circuits/vks");
@@ -44,7 +46,12 @@ export interface Deployment {
     payroll?: string;
     escrowFactory?: string;
     escrowInstanceWasm?: string;
+    /** Compliance allowlist policy, wired onto the token's ComplianceConfig. */
+    policy?: string;
   };
+  /** Admin address gating token freeze/unfreeze/set_compliance_config and the
+   *  policy contract's allowlist add/remove — the deployer key by default. */
+  complianceAdmin?: string;
   auditor: { id: number; secretHex: string; keyXHex: string; keyYHex: string };
   addrF: string;
 }

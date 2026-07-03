@@ -45,6 +45,8 @@ export interface ContractIds {
   payroll?: string;
   /** PrivateEscrow factory — optional; only the escrow flows need it. */
   escrowFactory?: string;
+  /** Compliance allowlist policy — optional; only the compliance UI needs it. */
+  policy?: string;
 }
 
 export interface ChainConfig {

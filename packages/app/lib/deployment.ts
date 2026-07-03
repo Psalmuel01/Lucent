@@ -34,5 +34,12 @@ export const DEPLOYMENT = {
     payroll: process.env.NEXT_PUBLIC_PAYROLL_ID || deployment.contracts.payroll || "",
     escrowFactory:
       process.env.NEXT_PUBLIC_ESCROW_FACTORY_ID || deployment.contracts.escrowFactory || "",
+    /**
+     * Compliance allowlist policy — empty until a redeploy wires the token's
+     * ComplianceHooks + `set_compliance_config` (see `scripts/deploy.ts`).
+     * When empty, the auditor screen's compliance section stays hidden rather
+     * than showing controls that would just fail on-chain.
+     */
+    policy: deployment.contracts.policy || "",
   },
 } as const;

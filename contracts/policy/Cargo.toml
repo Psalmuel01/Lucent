@@ -1,5 +1,5 @@
 [package]
-name = "confidential-token-contract"
+name = "confidential-policy-contract"
 edition.workspace = true
 version.workspace = true
 license.workspace = true

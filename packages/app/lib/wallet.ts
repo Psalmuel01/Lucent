@@ -82,6 +82,13 @@ import {
   type TransferEvent,
   type DisclosureRequest,
   type DisclosureBundle,
+  // compliance
+  submitFreeze,
+  submitUnfreeze,
+  submitPolicyAdd,
+  submitPolicyRemove,
+  readIsAllowed,
+  readIsFrozen,
 } from "@lucent/sdk";
 import registerCircuit from "@lucent/sdk/circuits/register.json";
 import withdrawCircuit from "@lucent/sdk/circuits/withdraw.json";
@@ -223,6 +230,46 @@ export class ConfidentialWallet {
     const r = await submitMerge(this.client, this.signer, this.address);
     await this.engine.applyMerge();
     this.log(`merged (tx ${r.hash.slice(0, 10)}…)`);
+  }
+
+  // ---- compliance (admin-only; the contract enforces this, not the app) ----
+
+  /** Freeze `account` — it can no longer deposit, transfer, receive, or withdraw. */
+  async freeze(account: string): Promise<void> {
+    this.log(`freezing ${account}…`);
+    const r = await submitFreeze(this.client, this.signer, account, this.address);
+    this.log(`frozen (tx ${r.hash.slice(0, 10)}…)`);
+  }
+
+  /** Unfreeze `account`. */
+  async unfreeze(account: string): Promise<void> {
+    this.log(`unfreezing ${account}…`);
+    const r = await submitUnfreeze(this.client, this.signer, account, this.address);
+    this.log(`unfrozen (tx ${r.hash.slice(0, 10)}…)`);
+  }
+
+  /** Whether `account` is currently frozen (read-only). */
+  async isFrozen(account: string): Promise<boolean> {
+    return readIsFrozen(this.client, account);
+  }
+
+  /** Grant `account` compliance-allowlist access. */
+  async policyAdd(account: string): Promise<void> {
+    this.log(`allowlisting ${account}…`);
+    const r = await submitPolicyAdd(this.client, this.signer, account);
+    this.log(`allowlisted (tx ${r.hash.slice(0, 10)}…)`);
+  }
+
+  /** Revoke `account`'s compliance-allowlist access. */
+  async policyRemove(account: string): Promise<void> {
+    this.log(`removing ${account} from allowlist…`);
+    const r = await submitPolicyRemove(this.client, this.signer, account);
+    this.log(`removed (tx ${r.hash.slice(0, 10)}…)`);
+  }
+
+  /** Whether `account` is currently allowlisted (read-only). */
+  async isAllowed(account: string): Promise<boolean> {
+    return readIsAllowed(this.client, account);
   }
 
   async transfer(to: string, amount: bigint, onPhase?: (p: TxPhase) => void): Promise<{ hash: string }> {

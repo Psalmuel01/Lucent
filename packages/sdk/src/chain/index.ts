@@ -3,6 +3,7 @@ export * from "./payload.js";
 export * from "./contract.js";
 export * from "./payroll.js";
 export * from "./escrow.js";
+export * from "./policy.js";
 export * from "./events.js";
 export * from "./indexer.js";
 export * from "./event-source.js";

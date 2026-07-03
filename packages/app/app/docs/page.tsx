@@ -16,6 +16,7 @@ const SECTIONS = [
   { id: "escrow", label: "Encrypted Escrow" },
   { id: "disclosure", label: "Selective Disclosure" },
   { id: "auditor", label: "Auditor View Key" },
+  { id: "compliance", label: "Compliance Policy" },
   { id: "contracts", label: "Contracts" },
   { id: "faq", label: "FAQ" },
 ];
@@ -124,6 +125,7 @@ export default function DocsPage() {
     Auditor: DEPLOYMENT.contracts.auditor,
     PayrollVault: DEPLOYMENT.contracts.payroll,
     "PrivateEscrow Factory": DEPLOYMENT.contracts.escrowFactory,
+    "Compliance Policy": DEPLOYMENT.contracts.policy,
   };
 
   return (
@@ -481,6 +483,41 @@ K_aud.y: 0x1924f028600e145cebddced39723196c9765ced6717a28454a15d527ffc120c8`}</P
             moment this stack is redeployed (a fresh random key is generated each time); check the
             Contracts section below for which deployment is current.
           </P>
+
+          <H2 id="compliance">Compliance Policy</H2>
+          <P>
+            Beyond the auditor&apos;s standing visibility into amounts, the token contract carries two
+            independent, on-chain-enforced compliance primitives: an <strong>allowlist policy</strong>{" "}
+            and per-account <strong>freezing</strong>. Both are gated behind a single compliance admin
+            address set at deploy time — nobody else can call either, and the contract enforces that
+            itself rather than relying on the app to hide the buttons.
+          </P>
+          <P>
+            <strong>Allowlist.</strong> A separate policy contract holds a simple allow/deny registry.
+            When wired onto the token, every deposit, transfer, receive, and withdraw checks the policy
+            first — an account not on the list is rejected on-chain, before any amount is touched. This
+            is the primitive an institution needs for KYC-gated payroll: onboard employees onto the
+            allowlist once, and every payroll run after that is automatically restricted to verified
+            accounts, with no per-transaction compliance check outside the contract itself.
+          </P>
+          <P>
+            <strong>Freezing.</strong> Independent of the allowlist, the compliance admin can freeze a
+            specific account outright — it can no longer deposit, transfer, receive, or withdraw until
+            unfrozen, regardless of allowlist status. Useful for responding to a flagged account without
+            having to touch the broader allowlist.
+          </P>
+          <P>
+            Both are managed from the <strong>Auditor</strong> screen&apos;s Compliance panel: connect
+            the compliance-admin&apos;s wallet, paste an address, and allow/remove or freeze/unfreeze it.
+            The panel also shows the live allowlist/frozen status for any address you check.
+          </P>
+          {!DEPLOYMENT.contracts.policy && (
+            <Callout tone="warning">
+              In the default deployment, the deployer wallet serves as both the auditor key registrant 
+              and the compliance admin. These roles can be separated by passing different addresses to 
+              the deploy script.
+            </Callout>
+          )}
 
           <H2 id="contracts">Contracts</H2>
           <P>

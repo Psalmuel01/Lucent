@@ -23,7 +23,7 @@ transforms:
       FROM stellar_testnet_events
       WHERE transaction_successful = TRUE
         AND in_successful_contract_call = TRUE
-        AND contract_id = 'CBF64DEOVQAXJFBSNGFEUT2AH4H7K5JBY3ZYJ5GVEINMNSDISWRG5N3F'
+        AND contract_id = 'CDQLYWKQYQ7QUUU6E5R4YTOZLEUN3OQ62GCS6SCCOLIL7SBT4T2MXPKU'
         AND JSON_VALUE(topics, '$[0].symbol') IN (
           'register',
           'deposit',

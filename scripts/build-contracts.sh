@@ -30,6 +30,7 @@ WASMS=(
   "payroll_vault_contract:payroll_vault"
   "private_escrow_instance_contract:private_escrow_instance"
   "private_escrow_factory_contract:private_escrow_factory"
+  "confidential_policy_contract:confidential_policy"
 )
 
 WASM_DIR="target/$TARGET/release"

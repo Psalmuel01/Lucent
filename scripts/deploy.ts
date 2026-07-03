@@ -22,10 +22,14 @@ import {
   publicKey, secret, readVk, saveDeployment, deploy, uploadWasm, type Deployment,
 } from "./_shared.js";
 import { ChainClient, keypairSigner } from "../packages/sdk/src/chain/client.js";
+import { scvStruct } from "../packages/sdk/src/chain/payload.js";
 import { addressToField } from "../packages/sdk/src/crypto/address.js";
 import { randomScalar, toHex32, fromBytesBE } from "../packages/sdk/src/crypto/field.js";
 import { H, scalarMul, pointToBytes, pointCoords } from "../packages/sdk/src/crypto/grumpkin.js";
 import { CIRCUIT_TYPE } from "../packages/sdk/src/crypto/constants.js";
+
+const addr = (a: string): xdr.ScVal => new Address(a).toScVal();
+const optAddr = (a: string | null): xdr.ScVal => (a ? addr(a) : xdr.ScVal.scvVoid());
 
 const DEPLOYER = "admin";
 
@@ -53,11 +57,16 @@ async function main(): Promise<void> {
   const underlying = UNDERLYING;
   console.log(`underlying (USDC SAC) = ${underlying}`);
 
-  // 2. Deploy registries + token.
+  // 2. Deploy registries + the compliance policy + token. The policy contract
+  //    has no dependency on the token (Policy::is_authorized takes the token
+  //    address as a call-time argument, not a constructor one), so it can be
+  //    deployed independently and wired onto the token afterward.
   const verifier = deploy(WASM.verifier, DEPLOYER, ["--admin", deployerPub, "--manager", deployerPub]);
   console.log(`verifier = ${verifier}`);
   const auditor = deploy(WASM.auditor, DEPLOYER, ["--admin", deployerPub, "--manager", deployerPub]);
   console.log(`auditor = ${auditor}`);
+  const policy = deploy(WASM.policy, DEPLOYER, ["--admin", deployerPub]);
+  console.log(`policy = ${policy}`);
 
   const client = new ChainClient({
     rpcUrl: RPC_URL,
@@ -70,6 +79,7 @@ async function main(): Promise<void> {
     "--underlying_asset", underlying,
     "--verifier", verifier,
     "--auditor", auditor,
+    "--admin", deployerPub,
   ]);
   console.log(`token = ${token}`);
   client.cfg.contracts.token = token;
@@ -122,6 +132,19 @@ async function main(): Promise<void> {
     console.log(`  addr_f parity OK: ${toHex32(sdkAddrF)}`);
   }
 
+  // 5.5. Wire the compliance policy onto the token. sac_passthrough is false —
+  //      there is no separate SAC identity to consult here, the policy
+  //      allowlist is the only gate. Every account must be added via
+  //      policy.add() (as the deployer, the policy admin) before it can
+  //      deposit, transfer, receive, or withdraw.
+  await client.invoke(
+    token,
+    "set_compliance_config",
+    [scvStruct({ policy: optAddr(policy), sac_passthrough: xdr.ScVal.scvBool(false) }), addr(deployerPub)],
+    signer,
+  );
+  console.log(`  compliance config set: policy=${policy}, sac_passthrough=false`);
+
   // 6. Lucent contracts. PayrollVault orchestrates transfers through the token;
   //    the PrivateEscrow factory deploys one instance per escrow, so its
   //    instance wasm is uploaded first and the factory is bound to that hash.
@@ -140,7 +163,8 @@ async function main(): Promise<void> {
     rpcUrl: RPC_URL,
     passphrase: PASSPHRASE,
     deployedAtLedger: ledgerBeforeToken,
-    contracts: { token, verifier, auditor, underlying, payroll, escrowFactory, escrowInstanceWasm },
+    contracts: { token, verifier, auditor, underlying, payroll, escrowFactory, escrowInstanceWasm, policy },
+    complianceAdmin: deployerPub,
     auditor: {
       id: 0,
       secretHex: toHex32(auditorSecret),
