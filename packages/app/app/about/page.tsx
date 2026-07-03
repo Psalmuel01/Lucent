@@ -259,6 +259,9 @@ export default function AboutPage() {
               <Link href="/docs" className="transition-colors hover:text-text-secondary">
                 Docs
               </Link>
+              <Link href="/stats" className="transition-colors hover:text-text-secondary">
+                Stats
+              </Link>
               <a
                 href="https://developers.stellar.org"
                 target="_blank"

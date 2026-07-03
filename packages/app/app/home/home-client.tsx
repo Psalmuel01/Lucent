@@ -14,8 +14,6 @@ import {
   Layers,
   UserCheck,
   Activity,
-  ScanEye,
-  ScanLine,
 } from "lucide-react";
 import {
   ChainClient,
@@ -43,12 +41,10 @@ import { DEPLOYMENT } from "@/lib/deployment";
 import { cn } from "@/lib/cn";
 
 const QUICK_ACTIONS = [
-  { href: "/shield", icon: ArrowDownUp, label: "Shield" },
-  { href: "/send", icon: Send, label: "Send" },
-  { href: "/payroll", icon: Briefcase, label: "Payroll" },
-  { href: "/escrow", icon: Lock, label: "Escrow" },
-  { href: "/auditor", icon: ScanEye, label: "Auditor" },
-  { href: "/verify", icon: ScanLine, label: "Verify" },
+  { href: "/shield", icon: ArrowDownUp, label: "Shield", tint: "text-accent bg-accent-bg" },
+  { href: "/send", icon: Send, label: "Send", tint: "text-success bg-success/10" },
+  { href: "/payroll", icon: Briefcase, label: "Payroll", tint: "text-encrypted bg-encrypted-bg" },
+  { href: "/escrow", icon: Lock, label: "Escrow", tint: "text-warning bg-warning/10" },
 ];
 
 /**
@@ -119,32 +115,38 @@ function ActivityRow({
           <div className="truncate text-sm font-medium text-text-primary">{label}</div>
           <div className="text-xs text-text-muted">{relativeLedger(ev.ledger)}</div>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 flex-col items-end gap-1">
           {ev.type === "transfer" &&
             (decryptedAmount === undefined ? (
               <Skeleton className="h-4 w-16" />
             ) : decryptedAmount === null ? (
               <EncryptedBadge />
             ) : (
-              <span className={cn("font-mono text-sm", iconColor)}>{displayAmount(decryptedAmount)}</span>
+              <span className={cn("font-mono text-sm font-medium tabular-nums", iconColor)}>
+                {direction === "received" ? "+" : "−"}
+                {displayAmount(decryptedAmount)}
+              </span>
             ))}
           {ev.type === "deposit" && (
-            <span className="font-mono text-sm text-accent">{displayAmount(ev.amount)}</span>
+            <span className="font-mono text-sm font-medium tabular-nums text-accent">
+              +{displayAmount(ev.amount)}
+            </span>
           )}
           {ev.type === "withdraw" && (
-            <span className="font-mono text-sm text-text-secondary">{displayAmount(ev.amount)}</span>
+            <span className="font-mono text-sm font-medium tabular-nums text-text-secondary">
+              −{displayAmount(ev.amount)}
+            </span>
           )}
           {direction && canDisclose && (
-            <Button
-              size="sm"
-              variant="ghost"
+            <button
               onClick={(e) => {
                 e.stopPropagation();
                 setProveOpen((v) => !v);
               }}
+              className="text-[11px] font-medium text-text-muted transition-colors duration-150 hover:text-accent"
             >
               {proveOpen ? "Close" : "Prove"}
-            </Button>
+            </button>
           )}
         </div>
       </div>
@@ -364,22 +366,40 @@ export function HomeClient() {
         </div>
 
         {/* Balance overview */}
-        <GlassCard padding="md">
-          <div className="flex flex-col gap-3">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.35em] text-text-muted">
-                  Spendable
-                </span>
-                <div className="mt-1 font-display text-2xl font-bold tabular-nums text-text-primary">
+        <GlassCard padding="lg" glow>
+          <div className="flex flex-col gap-5">
+            <div className="flex items-start justify-between">
+              <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.35em] text-text-muted">
+                Total Balance
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full border border-encrypted/20 bg-encrypted-bg px-2 py-0.5 text-[10px] font-medium text-encrypted">
+                <Lock className="h-2.5 w-2.5" /> Confidential
+              </span>
+            </div>
+
+            <div className="flex items-baseline gap-2">
+              <span className="font-display text-3xl font-bold tabular-nums text-text-primary">
+                {displayAmount(spendable + receiving)}
+              </span>
+              <span className="font-mono text-sm text-text-muted">USDC</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl border border-border bg-surface-2/60 p-3">
+                <div className="flex items-center gap-1.5 text-text-muted">
+                  <Lock className="h-3 w-3" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider">Spendable</span>
+                </div>
+                <div className="mt-1.5 font-mono text- font-semibold tabular-nums text-text-primary">
                   {displayAmount(spendable)}
                 </div>
               </div>
-              <div>
-                <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.35em] text-text-muted">
-                  Receiving
-                </span>
-                <div className="mt-1 font-display text-2xl font-bold tabular-nums text-text-primary">
+              <div className="rounded-xl border border-border bg-surface-2/60 p-3">
+                <div className="flex items-center gap-1.5 text-text-muted">
+                  <ArrowDownLeft className="h-3 w-3" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider">Receiving</span>
+                </div>
+                <div className="mt-1.5 font-mono text- font-semibold tabular-nums text-text-primary">
                   {displayAmount(receiving)}
                 </div>
               </div>
@@ -404,9 +424,7 @@ export function HomeClient() {
               the same number under a different label.
             */}
 
-            {/* <div className="glow-divider" /> */}
-
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between border-t border-border pt-3">
               <span className="text-xs text-text-muted">
                 {lastSync ? `Synced ${timeAgo(lastSync.getTime())}` : "Not synced yet"}
               </span>
@@ -417,16 +435,25 @@ export function HomeClient() {
           </div>
         </GlassCard>
 
-        {/* Quick actions — horizontal scroll on mobile, all 6 fit in a row on desktop */}
-        <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide md:grid md:grid-cols-6 md:overflow-visible">
-          {QUICK_ACTIONS.map(({ href, icon: Icon, label }) => (
-            <motion.div key={href} whileTap={{ scale: 0.94 }} className="shrink-0 md:w-full">
+        {/* Quick actions — horizontal scroll on mobile, all 4 fit in a row on desktop */}
+        <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide md:grid md:grid-cols-4 md:overflow-visible">
+          {QUICK_ACTIONS.map(({ href, icon: Icon, label, tint }) => (
+            <motion.div
+              key={href}
+              whileHover={{ y: -2 }}
+              whileTap={{ scale: 0.94 }}
+              className="shrink-0 md:w-full"
+            >
               <Link
                 href={href}
-                className="flex shrink-0 flex-col items-center gap-2 rounded-2xl border border-border bg-card px-5 py-3.5 text-text-secondary transition-all duration-150 hover:border-border-hover hover:text-text-primary md:w-full"
+                className="group flex shrink-0 flex-col items-center gap-2.5 rounded-2xl border border-border bg-card px-5 py-4 transition-all duration-150 hover:border-border-hover md:w-full"
               >
-                <Icon className="h-5 w-5" />
-                <span className="text-xs font-medium">{label}</span>
+                <div className={cn("flex h-10 w-10 items-center justify-center rounded-full transition-colors", tint)}>
+                  <Icon className="h-5 w-5" />
+                </div>
+                <span className="text-xs font-medium text-text-secondary transition-colors group-hover:text-text-primary">
+                  {label}
+                </span>
               </Link>
             </motion.div>
           ))}

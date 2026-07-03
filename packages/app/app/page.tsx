@@ -11,10 +11,12 @@ import {
   Lock,
   ScanLine,
   Shield,
+  UserCheck,
+  Layers,
   Menu,
   X,
 } from "lucide-react";
-import { ChainClient, fetchEvents } from "@lucent/sdk";
+import { ChainClient, fetchEvents, type RegisterEvent } from "@lucent/sdk";
 import { LucentLogoMark } from "@/components/icons/LucentLogoMark";
 import { GithubMark } from "@/components/icons/GithubMark";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -74,7 +76,7 @@ const fadeUp = {
 };
 
 function StatsBar() {
-  const [count, setCount] = useState<number | null>(null);
+  const [stats, setStats] = useState<{ registered: number; transfers: number; merges: number } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -87,9 +89,21 @@ function StatsBar() {
           contracts: DEPLOYMENT.contracts,
         });
         const { events } = await fetchEvents(client, { startLedger: DEPLOYMENT.deployedAtLedger });
-        if (!cancelled) setCount(events.length);
+        if (!cancelled) {
+          // G... keypair accounts only — every PrivateEscrow instance also
+          // registers as its own confidential account (C...) to hold a
+          // balance, but that's custody plumbing, not a person or org.
+          const registered = new Set(
+            events
+              .filter((e): e is RegisterEvent => e.type === "register" && e.account.startsWith("G"))
+              .map((e) => e.account),
+          ).size;
+          const transfers = events.filter((e) => e.type === "transfer").length;
+          const merges = events.filter((e) => e.type === "merge").length;
+          setStats({ registered, transfers, merges });
+        }
       } catch {
-        if (!cancelled) setCount(null);
+        if (!cancelled) setStats(null);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -99,29 +113,73 @@ function StatsBar() {
     };
   }, []);
 
+  // Mirrors the top row of /stats — keep these two in sync.
+  const cards = [
+    {
+      key: "registered" as const,
+      icon: UserCheck,
+      color: "text-encrypted bg-encrypted-bg",
+      label: "Registered Addresses",
+      sub: "Confidential accounts bound to a Grumpkin key",
+    },
+    {
+      key: "transfers" as const,
+      icon: Send,
+      color: "text-accent bg-accent-bg",
+      label: "Confidential Transfers",
+      sub: "Send, payroll, and escrow payments — amount hidden",
+    },
+    {
+      key: "merges" as const,
+      icon: Layers,
+      color: "text-encrypted bg-encrypted-bg",
+      label: "Merges",
+      sub: "Receiving balance folded into spendable",
+    },
+  ];
+
   return (
-    <div className="border-t border-border py-6">
-      <div className="mx-auto flex max-w-4xl items-center justify-center gap-12 px-6">
-        <div className="text-center">
-          <div className="font-mono text-sm font-semibold text-text-secondary">Protocol 26</div>
-          <div className="mt-1 text-xs text-text-muted">ZK verified on-chain</div>
+    <section className="border-t border-border px-6 py-14">
+      <div className="mx-auto max-w-3xl">
+        <div className="mb-8 text-center">
+          <p className="mb-2 font-mono text-xs uppercase tracking-widest text-accent/60">Live on testnet</p>
+          <h2 className="text-xl font-semibold md:text-2xl">Real activity, verifiably private</h2>
         </div>
-        <div className="h-8 w-px bg-border" />
-        <div className="text-center">
-          {loading ? (
-            <Skeleton className="mx-auto h-9 w-14" />
-          ) : (
-            <div className="font-display text-3xl font-bold tabular-nums text-accent">{count ?? "—"}</div>
-          )}
-          <div className="mt-1 text-xs text-text-muted">confidential transactions</div>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+          {cards.map(({ key, icon: Icon, color, label, sub }, i) => (
+            <motion.div
+              key={key}
+              className="glass-card flex flex-col items-center gap-3 p-5 text-center"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.4, delay: i * 0.08 }}
+            >
+              <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${color}`}>
+                <Icon className="h-4 w-4" strokeWidth={1.8} />
+              </div>
+              {loading ? (
+                <Skeleton className="h-7 w-14" />
+              ) : (
+                <span className="font-display text-2xl font-bold tabular-nums text-text-primary">
+                  {stats?.[key] ?? "—"}
+                </span>
+              )}
+              <div>
+                <h3 className="text-xs font-semibold text-text-primary">{label}</h3>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-text-muted">{sub}</p>
+              </div>
+            </motion.div>
+          ))}
         </div>
-        <div className="h-8 w-px bg-border" />
-        <div className="text-center">
-          <div className="font-mono text-sm font-semibold text-text-secondary">Stellar testnet</div>
-          <div className="mt-1 text-xs text-text-muted">live deployment</div>
-        </div>
+        <Link
+          href="/stats"
+          className="mx-auto mt-6 flex w-fit items-center gap-1 text-xs text-text-muted transition-colors hover:text-accent"
+        >
+          View full stats <ArrowRight className="h-3 w-3" />
+        </Link>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -331,6 +389,8 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <StatsBar />
+
       {/* Trust model */}
       <section className="border-t border-border px-6 py-20">
         <div className="mx-auto max-w-3xl text-center">
@@ -359,8 +419,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <StatsBar />
-
       {/* Footer */}
       <footer className="border-t border-border px-6 py-12">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 md:flex-row">
@@ -372,11 +430,11 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="flex items-center gap-7">
+            <Link href="/stats" className="text-sm text-text-muted transition-colors hover:text-text-secondary">
+              Stats
+            </Link>
             <Link href="/docs" className="text-sm text-text-muted transition-colors hover:text-text-secondary">
               Docs
-            </Link>
-            <Link href="/about" className="text-sm text-text-muted transition-colors hover:text-text-secondary">
-              About
             </Link>
             <a
               href="https://github.com/Psalmuel01/Lucent"
