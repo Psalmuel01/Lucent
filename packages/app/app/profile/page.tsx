@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Copy, Check, LogOut, Activity, BookOpen, Info } from "lucide-react";
+import { Copy, Check, LogOut, Activity, BookOpen, Info, RefreshCw } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { GlassCard } from "@/components/ui/GlassCard";
@@ -12,13 +12,15 @@ import { Pill } from "@/components/ui/Pill";
 import { LucentLogoMark } from "@/components/icons/LucentLogoMark";
 import { useWallet } from "@/lib/wallet-context";
 import { useRequireWallet } from "@/lib/use-require-wallet";
+import { ConnectPrompt } from "@/components/ui/ConnectPrompt";
 import { DEPLOYMENT } from "@/lib/deployment";
 
 export default function ProfilePage() {
   const wallet = useRequireWallet();
-  const { view, disconnect } = useWallet();
+  const { view, disconnect, resync } = useWallet();
   const router = useRouter();
   const [copied, setCopied] = useState(false);
+  const [resyncing, setResyncing] = useState(false);
 
   async function copy() {
     if (!wallet) return;
@@ -32,9 +34,26 @@ export default function ProfilePage() {
     router.push("/");
   }
 
-  if (!wallet) return null;
+  async function handleResync() {
+    setResyncing(true);
+    try {
+      await resync();
+    } finally {
+      setResyncing(false);
+    }
+  }
+
+  if (!wallet) {
+    return (
+      <AppShell>
+        <PageHeader title="Profile" showBack={false} />
+        <ConnectPrompt message="Connect your wallet to view your profile." />
+      </AppShell>
+    );
+  }
 
   const synced = view?.matchesChain === true;
+  const mismatch = view?.matchesChain === false;
 
   return (
     <AppShell>
@@ -64,8 +83,23 @@ export default function ProfilePage() {
 
               <div className="flex items-center gap-2">
                 <Pill tone="amber">Stellar Testnet</Pill>
-                <Pill tone={synced ? "green" : "neutral"}>{synced ? "State matches chain" : view ? "Syncing…" : "—"}</Pill>
+                <Pill tone={synced ? "green" : mismatch ? "red" : "neutral"}>
+                  {synced ? "State matches chain" : mismatch ? "Mismatch" : view ? "Syncing…" : "—"}
+                </Pill>
               </div>
+
+              {mismatch && (
+                <div className="flex flex-col items-center gap-1.5">
+                  <p className="max-w-xs text-center text-xs text-text-muted">
+                    Local state disagrees with what&apos;s on-chain. A resync clears the local cache
+                    and fully replays event history to fix it.
+                  </p>
+                  <Button size="sm" variant="secondary" isLoading={resyncing} onClick={handleResync}>
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    Resync from chain
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </GlassCard>

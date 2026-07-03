@@ -42,6 +42,18 @@
   .tabular-nums { font-variant-numeric: tabular-nums; }
   .text-balance { text-wrap: balance; }
 
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .pb-safe {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
   .encrypted-value {
     filter: blur(6px);
     transition: filter 0.7s cubic-bezier(0.4,0,0.2,1);

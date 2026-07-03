@@ -13,18 +13,20 @@ import { AddressDisplay } from "@/components/ui/AddressDisplay";
 import { ProofStatusPill } from "@/components/ui/ProofStatusPill";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 import { ProofLoadingOverlay } from "@/components/ui/ProofLoadingOverlay";
+import { Callout } from "@/components/ui/Callout";
 import { useWallet } from "@/lib/wallet-context";
 import { useRequireWallet } from "@/lib/use-require-wallet";
+import { ConnectPrompt } from "@/components/ui/ConnectPrompt";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { useAction } from "@/lib/use-action";
-import { toBaseUnits } from "@/lib/amount";
+import { toBaseUnits, formatAmount, DECIMALS } from "@/lib/amount";
 import { errMsg } from "@/lib/err";
 
 type Step = "recipient" | "amount" | "confirm";
 
 export default function SendPage() {
   const wallet = useRequireWallet();
-  const { error, setError } = useWallet();
+  const { view, error, setError } = useWallet();
   const { run, busy, phase } = useAction();
   const [step, setStep] = useState<Step>("recipient");
   const [recipients, setRecipients] = useState<string[] | null>(null);
@@ -43,7 +45,14 @@ export default function SendPage() {
       });
   }, [wallet, setError]);
 
-  if (!wallet) return null;
+  if (!wallet) {
+    return (
+      <AppShell>
+        <PageHeader title="Send" showBack={false} />
+        <ConnectPrompt message="Connect your wallet to send a confidential transfer." />
+      </AppShell>
+    );
+  }
 
   async function submit() {
     setTxHash(null);
@@ -95,6 +104,8 @@ export default function SendPage() {
 
   const steps: Step[] = ["recipient", "amount", "confirm"];
   const stepIndex = steps.indexOf(step);
+  const spendable = view?.spendable ?? 0n;
+  const registered = view?.registered ?? false;
 
   return (
     <AppShell>
@@ -102,6 +113,13 @@ export default function SendPage() {
 
       <div className="flex flex-col gap-5 px-4 pb-6 md:mx-auto md:max-w-2xl md:px-8">
         <ErrorBanner error={error} onDismiss={() => setError(null)} />
+
+        {!registered && (
+          <Callout>
+            You need to register your confidential account before you can send — head to{" "}
+            <strong>Home</strong> to register, a one-time proof.
+          </Callout>
+        )}
 
         <div className="flex items-center gap-2">
           {steps.map((s, i) => (
@@ -139,7 +157,7 @@ export default function SendPage() {
               </>
             )}
 
-            <Button fullWidth size="lg" disabled={!to.trim()} onClick={() => setStep("amount")}>
+            <Button fullWidth size="lg" disabled={!to.trim() || !registered} onClick={() => setStep("amount")}>
               Continue
             </Button>
           </>
@@ -155,7 +173,13 @@ export default function SendPage() {
             </GlassCard>
 
             <GlassCard padding="md">
-              <NumericKeypad value={amount} onChange={setAmount} unit="USDC" />
+              <NumericKeypad
+                value={amount}
+                onChange={setAmount}
+                unit="USDC"
+                maxValue={formatAmount(spendable, DECIMALS)}
+                onMax={() => setAmount(formatAmount(spendable, DECIMALS))}
+              />
             </GlassCard>
 
             <div className="flex justify-center">

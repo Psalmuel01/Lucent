@@ -1,12 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, ArrowDownUp, Send, Briefcase, Lock, ScanLine, Shield, Menu, X } from "lucide-react";
+import {
+  ArrowRight,
+  ArrowDownUp,
+  Send,
+  Briefcase,
+  Lock,
+  ScanLine,
+  Shield,
+  UserCheck,
+  Layers,
+  Menu,
+  X,
+} from "lucide-react";
+import { ChainClient, fetchEvents, type RegisterEvent } from "@lucent/sdk";
 import { LucentLogoMark } from "@/components/icons/LucentLogoMark";
-import { useWallet } from "@/lib/wallet-context";
+import { GithubMark } from "@/components/icons/GithubMark";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { DEPLOYMENT } from "@/lib/deployment";
 
 const STEPS = [
   {
@@ -61,19 +75,116 @@ const fadeUp = {
   show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" as const } },
 };
 
+function StatsBar() {
+  const [stats, setStats] = useState<{ registered: number; transfers: number; merges: number } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const client = new ChainClient({
+          rpcUrl: DEPLOYMENT.rpcUrl,
+          networkPassphrase: DEPLOYMENT.networkPassphrase,
+          contracts: DEPLOYMENT.contracts,
+        });
+        const { events } = await fetchEvents(client, { startLedger: DEPLOYMENT.deployedAtLedger });
+        if (!cancelled) {
+          // G... keypair accounts only — every PrivateEscrow instance also
+          // registers as its own confidential account (C...) to hold a
+          // balance, but that's custody plumbing, not a person or org.
+          const registered = new Set(
+            events
+              .filter((e): e is RegisterEvent => e.type === "register" && e.account.startsWith("G"))
+              .map((e) => e.account),
+          ).size;
+          const transfers = events.filter((e) => e.type === "transfer").length;
+          const merges = events.filter((e) => e.type === "merge").length;
+          setStats({ registered, transfers, merges });
+        }
+      } catch {
+        if (!cancelled) setStats(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Mirrors the top row of /stats — keep these two in sync.
+  const cards = [
+    {
+      key: "registered" as const,
+      icon: UserCheck,
+      color: "text-encrypted bg-encrypted-bg",
+      label: "Registered Addresses",
+      sub: "Confidential accounts bound to a Grumpkin key",
+    },
+    {
+      key: "transfers" as const,
+      icon: Send,
+      color: "text-accent bg-accent-bg",
+      label: "Confidential Transfers",
+      sub: "Send, payroll, and escrow payments — amount hidden",
+    },
+    {
+      key: "merges" as const,
+      icon: Layers,
+      color: "text-encrypted bg-encrypted-bg",
+      label: "Merges",
+      sub: "Receiving balance folded into spendable",
+    },
+  ];
+
+  return (
+    <section className="border-t border-border px-6 py-14">
+      <div className="mx-auto max-w-3xl">
+        <div className="mb-8 text-center">
+          <p className="mb-2 font-mono text-xs uppercase tracking-widest text-accent/60">Live on testnet</p>
+          <h2 className="text-xl font-semibold md:text-2xl">Real activity, verifiably private</h2>
+        </div>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+          {cards.map(({ key, icon: Icon, color, label, sub }, i) => (
+            <motion.div
+              key={key}
+              className="glass-card flex flex-col items-center gap-3 p-5 text-center"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.4, delay: i * 0.08 }}
+            >
+              <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${color}`}>
+                <Icon className="h-4 w-4" strokeWidth={1.8} />
+              </div>
+              {loading ? (
+                <Skeleton className="h-7 w-14" />
+              ) : (
+                <span className="font-display text-2xl font-bold tabular-nums text-text-primary">
+                  {stats?.[key] ?? "—"}
+                </span>
+              )}
+              <div>
+                <h3 className="text-xs font-semibold text-text-primary">{label}</h3>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-text-muted">{sub}</p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+        <Link
+          href="/stats"
+          className="mx-auto mt-6 flex w-fit items-center gap-1 text-xs text-text-muted transition-colors hover:text-accent"
+        >
+          View full stats <ArrowRight className="h-3 w-3" />
+        </Link>
+      </div>
+    </section>
+  );
+}
+
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { wallet, connecting, connect } = useWallet();
-  const router = useRouter();
-
-  async function launch() {
-    if (wallet) {
-      router.push("/shield");
-      return;
-    }
-    const w = await connect();
-    if (w) router.push("/shield");
-  }
 
   return (
     <div className="min-h-dvh overflow-x-hidden bg-void text-text-primary">
@@ -93,14 +204,13 @@ export default function LandingPage() {
             <Link href="/about" className="text-sm text-text-secondary transition-colors hover:text-text-primary">
               About
             </Link>
-            <button
-              onClick={launch}
-              disabled={connecting}
-              className="flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-black transition-colors hover:bg-accent-hover disabled:opacity-60"
+            <Link
+              href="/home"
+              className="flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-black transition-colors hover:bg-accent-hover"
             >
-              {connecting ? "Connecting…" : wallet ? "Go to App" : "Launch App"}
+              Launch App
               <ArrowRight className="h-4 w-4" />
-            </button>
+            </Link>
           </div>
 
           {/* Mobile hamburger */}
@@ -138,17 +248,14 @@ export default function LandingPage() {
                 >
                   About
                 </Link>
-                <button
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    void launch();
-                  }}
-                  disabled={connecting}
-                  className="flex items-center justify-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-accent-hover disabled:opacity-60"
+                <Link
+                  href="/home"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center justify-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-accent-hover"
                 >
-                  {connecting ? "Connecting…" : wallet ? "Go to App" : "Launch App"}
+                  Launch App
                   <ArrowRight className="h-4 w-4" />
-                </button>
+                </Link>
               </div>
             </motion.div>
           )}
@@ -191,15 +298,15 @@ export default function LandingPage() {
               Sender and receiver are public. Only the number is encrypted — with ZK proofs verified
               natively on Stellar. Same chain, same finality, different visibility.
             </motion.p>
-            <motion.div variants={fadeUp} className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <button
-                onClick={launch}
-                disabled={connecting}
-                className="flex items-center justify-center gap-2 rounded-2xl bg-accent px-7 py-3.5 text-sm font-semibold text-black transition-colors hover:bg-accent-hover disabled:opacity-60"
+            <motion.div variants={fadeUp} className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+              <Link
+                href="/home"
+                className="flex items-center justify-center gap-2 rounded-2xl bg-accent px-7 py-3.5 text-sm font-semibold text-black transition-colors hover:bg-accent-hover"
               >
-                {connecting ? "Connecting…" : wallet ? "Go to App" : "Launch App"}
+                Launch App
                 <ArrowRight className="h-4 w-4" />
-              </button>
+              </Link>
+              <div className="hidden h-8 w-px bg-border sm:block" />
               <Link
                 href="/docs"
                 className="flex items-center justify-center gap-2 rounded-2xl border border-border px-7 py-3.5 text-sm font-medium text-text-secondary transition-colors hover:border-border-hover hover:text-text-primary"
@@ -207,10 +314,10 @@ export default function LandingPage() {
                 Read Docs
               </Link>
             </motion.div>
-            <motion.div variants={fadeUp} className="flex items-center justify-center gap-2 text-xs text-text-muted">
+            <motion.div variants={fadeUp} className="flex items-center justify-center gap-2 font-mono text-xs text-text-muted">
               <span>Powered by</span>
               <span className="font-medium text-text-secondary">Stellar Protocol 26</span>
-              <span>·</span>
+              <span className="text-accent">·</span>
               <span>Soroban testnet</span>
             </motion.div>
           </motion.div>
@@ -282,6 +389,8 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <StatsBar />
+
       {/* Trust model */}
       <section className="border-t border-border px-6 py-20">
         <div className="mx-auto max-w-3xl text-center">
@@ -321,18 +430,19 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="flex items-center gap-7">
+            <Link href="/stats" className="text-sm text-text-muted transition-colors hover:text-text-secondary">
+              Stats
+            </Link>
             <Link href="/docs" className="text-sm text-text-muted transition-colors hover:text-text-secondary">
               Docs
-            </Link>
-            <Link href="/about" className="text-sm text-text-muted transition-colors hover:text-text-secondary">
-              About
             </Link>
             <a
               href="https://github.com/Psalmuel01/Lucent"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm text-text-muted transition-colors hover:text-text-secondary"
+              className="flex items-center gap-1.5 text-sm text-text-muted transition-colors hover:text-text-secondary"
             >
+              <GithubMark className="h-4 w-4" />
               GitHub
             </a>
             <a

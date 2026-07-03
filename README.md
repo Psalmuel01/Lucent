@@ -63,8 +63,8 @@ fund your account (Freighter's built-in friendbot). `next dev` already serves
 the cross-origin-isolation headers in-browser proving needs, so there's
 nothing extra to configure locally.
 
-Shield, Send, Auditor, and Prove work immediately against the deployment in
-`deployments/testnet.json`. **Payroll and Escrow** show a "not configured"
+Home, Shield, Send, Auditor, and Verify work immediately against the
+deployment in `deployments/testnet.json`. **Payroll and Escrow** show a "not configured"
 notice until their contracts are deployed ([below](#deploying)) — after which
 they light up automatically, no code change needed. Want to see the
 compliance view without deploying anything yourself? The in-app **Docs**
@@ -171,11 +171,18 @@ the entire product front-end are Lucent's own.
 The front-end (`packages/app`) is a dark, gold-accented Next.js app:
 
 - **Landing, Docs, About** — the public marketing surface.
-- **Shield · Send · Payroll · Escrow · Auditor · Prove · Profile** — the app,
-  reachable from a sidebar (desktop) or bottom nav (mobile). Shield, Send,
-  Payroll, Escrow, and Profile require a connected wallet and redirect to the
-  landing page if none is connected; Auditor needs no wallet at all, and
-  Prove only gates its holder-side tab.
+- **Home · Shield · Send · Payroll · Escrow · Auditor · Verify · Profile** —
+  the app, reachable from a sidebar (desktop) or bottom nav (mobile: five
+  primary tabs plus a "More" sheet for Escrow, Verify, Auditor, and Profile),
+  all one tap from each other — none of them redirect. Home is the default
+  landing screen after connecting: balances, quick actions, and recent
+  activity at a glance, including a "Prove" action on your own transfers
+  right where they are in the feed. Shield, Send, Payroll, Escrow, Home, and
+  Profile need a connected wallet and show an inline connect prompt in place
+  of their content until one's attached; Auditor and Verify need no wallet
+  at all — Verify is purely the verifier side of selective disclosure now
+  (mint a request, check a returned bundle), since the holder side (proving)
+  lives on Home, next to the transfer it's about.
 - A shared component library (glass cards, proof-loading overlays, encrypted
   badges, a numeric keypad, tx-status steppers) and a `ConfidentialWallet`
   client class wrapping the SDK's crypto, proving, chain, and state layers.
@@ -233,8 +240,9 @@ A full end-to-end walkthrough, real proofs on testnet:
    salaries, execute; then **Auditor** decrypts every salary amount.
 4. **Escrow** — deploy + fund an escrow (two wallet confirmations); walk it
    through mark-completed → release (or dispute → resolve).
-5. **Prove** — mint a request on the Verify tab, disclose a transfer on the
-   Prove tab, verify the returned bundle.
+5. **Selective disclosure** — mint a request on the Verify screen, disclose
+   the matching transfer from Home's activity feed, verify the returned
+   bundle back on Verify.
 
 ## Architecture
 
@@ -271,7 +279,7 @@ Read from `deployments/testnet.json`, rewritten automatically by
 
 ## Acknowledgments
 
-Lucent is built on
+Lucent is inspired by
 [`stellar-confidential-token-demo`](https://github.com/brozorec/stellar-confidential-token-demo),
 an open-source confidential-payments demo for Stellar (MIT). Its
 confidential-token primitive builds on

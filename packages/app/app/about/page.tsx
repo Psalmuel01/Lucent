@@ -16,7 +16,7 @@ export default function AboutPage() {
               Docs
             </Link>
             <Link
-              href="/shield"
+              href="/home"
               className="flex items-center gap-1.5 rounded-full bg-accent px-4 py-1.5 text-xs font-semibold text-black transition-colors hover:bg-accent-hover"
             >
               Launch App <ArrowRight className="h-3.5 w-3.5" />
@@ -258,6 +258,9 @@ export default function AboutPage() {
             <div className="flex items-center gap-6 text-sm text-text-muted">
               <Link href="/docs" className="transition-colors hover:text-text-secondary">
                 Docs
+              </Link>
+              <Link href="/stats" className="transition-colors hover:text-text-secondary">
+                Stats
               </Link>
               <a
                 href="https://developers.stellar.org"

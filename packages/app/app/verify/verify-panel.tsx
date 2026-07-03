@@ -128,7 +128,7 @@ export function VerifyPanel() {
       <GlassCard padding="md">
         <SectionLabel>Your Request</SectionLabel>
         <p className="mt-3 text-xs text-text-muted">
-          Hand this to the holder; they disclose against it on the Prove tab. The nonce is one-time.
+          Hand this to the holder; they disclose against it from their Home screen. The nonce is one-time.
         </p>
         <div className="mt-3 flex items-center gap-2">
           <Button variant="secondary" disabled={!keys} onClick={mintRequest}>
@@ -171,8 +171,10 @@ export function VerifyPanel() {
       {result && (
         <GlassCard padding="md" className="border-success/40">
           <h3 className="mb-2 font-medium text-md text-success">Disclosure verified ✓</h3>
-          <div className="mb-3 font-display text-xl font-bold tabular-nums text-text-primary">
-            {displayAmount(result.amount)}
+          <div className="mb-3">
+            <span className="font-display text-3xl font-bold tabular-nums text-accent">
+              {displayAmount(result.amount)}
+            </span>
           </div>
           <p className="text-sm text-text-secondary">
             The on-chain transfer{" "}

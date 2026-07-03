@@ -154,6 +154,37 @@ export class StateEngine {
   }
 
   /**
+   * Optimistically apply a `merge` locally (same transform as the `merge`
+   * case in {@link apply}), for the same reason as {@link setSpendable}: a
+   * caller who just submitted a merge (directly, or indirectly via something
+   * like PayrollVault's `claim`) shouldn't have to wait for the event to land
+   * before the cached state — and `verifyAgainstChain`, which reads on-chain
+   * storage directly and so reflects the merge instantly — agree again.
+   */
+  async applyMerge(): Promise<AccountState> {
+    const state = await this.current();
+    state.spendable = {
+      v: state.spendable.v + state.receiving.v,
+      r: frAdd(state.spendable.r, state.receiving.r),
+    };
+    state.receiving = { v: 0n, r: 0n };
+    await this.cfg.store.save(state);
+    return state;
+  }
+
+  /**
+   * Discard all locally cached state (opening + resume cursor) so the next
+   * {@link sync} fully replays event history from `fromLedger` instead of
+   * resuming. A plain `sync` can't fix state that's already diverged from
+   * chain — it only fetches events after the stored cursor, so a gap or a
+   * missed event before that point is stuck. This is the recovery path for a
+   * `verifyAgainstChain` mismatch that a normal sync doesn't clear.
+   */
+  async reset(): Promise<void> {
+    await this.cfg.store.save(freshState(this.cfg.address));
+  }
+
+  /**
    * Strong correctness check: the cached openings must re-commit to the exact
    * points stored on-chain. Mismatch means the local state diverged (a missed
    * event, an expired credit, or a bug) and is unsafe to spend from.
