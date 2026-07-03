@@ -17,6 +17,9 @@ use stellar_access::access_control;
 use stellar_macros::only_admin;
 use stellar_tokens::confidential::compliance::Policy;
 
+#[cfg(test)]
+mod test;
+
 /// TTL bookkeeping for the per-account allowlist flag, mirroring the
 /// confidential token's own `Frozen` entry discipline (see
 /// `stellar_tokens::confidential::compliance::storage`).
