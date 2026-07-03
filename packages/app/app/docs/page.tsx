@@ -492,9 +492,9 @@ fund(register_data, auditor_id, transfer_in)       // then this moves the money`
             without deploying your own stack. Paste the <Code>secret</Code> value into the Auditor
             screen&apos;s unlock field.
           </Callout>
-          <Pre>{`secret:  0x00b323d53fd43fc4e3710728fea88aa0600aa20726e07f1c558a17b682ed76b3
-K_aud.x: 0x20e9114a670a4ac2ae297c65a8a6ecc26f782af39d9be7ea7134a562c5427030
-K_aud.y: 0x1924f028600e145cebddced39723196c9765ced6717a28454a15d527ffc120c8`}</Pre>
+          <Pre>{`secret:  0x002db306c1ef9309a478294fc1f14b2e9b112052d3d5b8ce7e5c0f1c69bb2804
+K_aud.x: 0x2414ea8f68ff9c6ab9c49a5113cbee002c5646fcea36757e8108b1edcf82d4d0
+K_aud.y: 0x0ad237715304822d5c532c31a1afbd83b690f34c8e5af01bd9b47b3271e5ac4d`}</Pre>
           <P>
             This key decrypts every confidential balance and transfer registered under auditor id 0 on
             this specific testnet deployment. There&apos;s nothing sensitive behind it — testnet, no real
