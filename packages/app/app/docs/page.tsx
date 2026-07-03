@@ -363,6 +363,26 @@ If depositor stalls past the release window:
   Without arbiter -> recipient claims      (auto RELEASED)
 
 No delivery -> depositor waits for timeout -> reclaims (REFUNDED)`}</Pre>
+          <H3>The two clocks</H3>
+          <P>
+            Two independent, non-overlapping timers gate the escrow — one per failure mode:
+          </P>
+          <P>
+            <strong>Timeout</strong> protects the depositor if the recipient never engages at all. Chosen
+            per-escrow at creation — <Code>1h</Code>, <Code>24h</Code>, <Code>7d</Code>, or{" "}
+            <Code>30d</Code> — and only live while still <Code>Funded</Code>: once the recipient marks
+            delivery, the timeout path is permanently blocked, so a stale timeout can never undercut a
+            delivery that&apos;s already been confirmed.
+          </P>
+          <P>
+            <strong>Release window</strong> protects the recipient if the depositor stalls after delivery
+            is confirmed. Fixed at <Code>10 minutes</Code> from <Code>mark_completed</Code>, not
+            configurable per-escrow. Both deadlines are enforced by the contract itself, not the app —
+            calling an action before its deadline simply reverts on-chain. The Escrow screen shows a live
+            countdown to whichever deadline currently applies, and disables the corresponding action
+            (Timeout Refund / Claim / Dispute) until it actually opens, so there&apos;s no guessing at
+            when a call will succeed.
+          </P>
           <H3>Funding: two calls, not one</H3>
           <P>
             Funding is the expensive step, proof-wise — the depositor derives a one-time Grumpkin

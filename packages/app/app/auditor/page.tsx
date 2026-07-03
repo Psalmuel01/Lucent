@@ -435,7 +435,10 @@ export default function AuditorPage() {
                     {accounts.map((a) => (
                       <tr key={a.address} className="border-t border-border">
                         <td className="py-1.5">
-                          <AddressDisplay address={a.address} chars={6} className="text-xs" />
+                          <div className="flex items-center gap-1.5">
+                            <AddressDisplay address={a.address} chars={6} className="text-xs" />
+                            {!a.address.startsWith("G") && <Pill tone="neutral">contract</Pill>}
+                          </div>
                         </td>
                         <td className="py-1.5 font-mono tabular-nums text-text-primary">{a.spendable === null ? "?" : displayAmount(a.spendable)}</td>
                         <td className="py-1.5 font-mono tabular-nums text-text-primary">{displayAmount(a.receiving)}</td>

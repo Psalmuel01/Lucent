@@ -39,6 +39,14 @@ interface BaseEvent {
    * token), which is what the StateEngine persists between syncs.
    */
   cursor: string;
+  /**
+   * Ledger close time (ISO 8601), when the source provides it. The RPC's
+   * `getEvents` already returns this on every event at no extra cost —
+   * despite it looking like it'd need a per-event round trip, it doesn't.
+   * The indexer's raw rows don't currently surface it, so this is `undefined`
+   * for indexer-sourced events; callers should fall back to the ledger number.
+   */
+  closedAt?: string;
 }
 
 export interface RegisterEvent extends BaseEvent {
@@ -120,7 +128,7 @@ export interface EventDataAccessor {
  */
 export function buildConfidentialEvent(
   name: string,
-  base: { ledger: number; txHash: string; cursor: string },
+  base: { ledger: number; txHash: string; cursor: string; closedAt?: string },
   addr: (topicIndex: number) => string,
   data: EventDataAccessor,
 ): ConfidentialEvent | null {
@@ -345,6 +353,7 @@ function parseEvent(ev: rpc.Api.EventResponse): ConfidentialEvent | null {
     ledger: ev.ledger,
     txHash: ev.txHash,
     cursor: naturalEventId({ ledger: ev.ledger, txHash: ev.txHash, opIndex, eventIndex }),
+    closedAt: ev.ledgerClosedAt,
   };
   const addr = (i: number): string => Address.fromScVal(topics[i]!).toString();
   return buildConfidentialEvent(name, base, addr, dataMap(ev.value));

@@ -26,5 +26,3 @@ deployments/*.json
 
 # OS
 .DS_Store
-
-shade-ref

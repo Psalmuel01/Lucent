@@ -21,6 +21,7 @@ import {
   hybridFetchEvents,
   type ConfidentialEvent,
   type TransferEvent,
+  type EscrowInfo,
 } from "@lucent/sdk";
 import type { ConfidentialWallet } from "@/lib/wallet";
 import { AppShell } from "@/components/layout/AppShell";
@@ -32,6 +33,8 @@ import { EncryptedBadge } from "@/components/ui/EncryptedBadge";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { TxStatus, type TxStep } from "@/components/ui/TxStatus";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { AddressDisplay } from "@/components/ui/AddressDisplay";
+import { Modal } from "@/components/ui/Modal";
 import { LucentLogoMark } from "@/components/icons/LucentLogoMark";
 import { DiscloseFlow } from "./disclose-flow";
 import { useWallet } from "@/lib/wallet-context";
@@ -48,28 +51,76 @@ const QUICK_ACTIONS = [
 ];
 
 /**
- * Ledger numbers don't carry wall-clock time without an extra RPC round trip
- * per event (there's no cheap ledger → timestamp conversion available
- * client-side), so this is honestly just the ledger — not a fake "3m ago".
+ * The RPC's `getEvents` returns each event's ledger close time at no extra
+ * cost, so most events get a real "2m ago". Indexer-sourced events don't
+ * currently carry this (the Worker's raw rows don't surface it), so those
+ * fall back to the bare ledger number.
  */
-function relativeLedger(ledger: number): string {
-  return `Ledger ${ledger}`;
+function relativeTime(ev: ConfidentialEvent): string {
+  if (ev.closedAt) return timeAgo(new Date(ev.closedAt).getTime());
+  return `Ledger ${ev.ledger}`;
 }
 
 type IconType = ComponentType<{ className?: string }>;
 
-function describeEvent(ev: ConfidentialEvent, me: string): { icon: IconType; iconColor: string; label: string } {
+/**
+ * Cross-referenced context that lets a plain `confidential_transfer`/`merge`
+ * be relabeled with what it actually was. The token contract has no notion of
+ * "payroll" or "escrow" — a salary is just a transfer between two regular
+ * (G...) addresses, indistinguishable on-chain from a deliberate personal
+ * Send between the same two people. Only escrow gets relabeled, because it's
+ * the one case with a hard signal: the counterparty being a contract (C...)
+ * address — every escrow instance IS its own confidential account — not a
+ * guess about intent. `escrowByAddress` resolves it to depositor/recipient.
+ *
+ * Payroll deliberately does NOT get the same treatment. An earlier version
+ * relabeled any transfer to/from a known employer/employee of yours as
+ * "Salary," but that's wrong the moment that employer and employee also send
+ * each other money directly for any other reason — which is exactly a
+ * personal transfer, and mislabeling it erodes trust in the whole feed.
+ * There's no on-chain marker that distinguishes a transfer submitted via
+ * PayrollVault's execute_run from one submitted directly by a wallet with the
+ * same from/to — the PayrollVault contract's own EmployeePaid/RunExecuted
+ * events would be the correct signal (matched by transaction hash), but that
+ * means fetching a second contract's event stream, not implemented here.
+ * A merge is likewise NOT relabeled "Claimed payroll" for the same reason:
+ * claim() is literally token.merge() under another name.
+ */
+interface EventContext {
+  me: string;
+  escrowByAddress: Map<string, EscrowInfo>;
+}
+
+function describeEvent(ev: ConfidentialEvent, ctx: EventContext): { icon: IconType; iconColor: string; label: string } {
+  const { me, escrowByAddress } = ctx;
   switch (ev.type) {
-    case "transfer":
-      return ev.to === me
+    case "transfer": {
+      const counterparty = ev.to === me ? ev.from : ev.to;
+      const received = ev.to === me;
+
+      const escrow = escrowByAddress.get(counterparty);
+      if (escrow) {
+        if (received && escrow.depositor === me) {
+          return { icon: Lock, iconColor: "text-warning", label: "Escrow refunded to you" };
+        }
+        if (received && escrow.recipient === me) {
+          return { icon: Lock, iconColor: "text-success", label: "Escrow released to you" };
+        }
+        if (!received) {
+          return { icon: Lock, iconColor: "text-warning", label: "Escrow funded" };
+        }
+      }
+
+      return received
         ? { icon: ArrowDownLeft, iconColor: "text-success", label: `Received from ${shortAddress(ev.from, 4)}` }
         : { icon: ArrowUpRight, iconColor: "text-text-secondary", label: `Sent to ${shortAddress(ev.to, 4)}` };
+    }
     case "deposit":
       return { icon: ArrowDownUp, iconColor: "text-accent", label: "Deposited" };
     case "withdraw":
       return { icon: ArrowDownUp, iconColor: "text-accent", label: "Withdrew" };
     case "merge":
-      return { icon: Layers, iconColor: "text-encrypted", label: "Merged receiving" };
+      return { icon: Layers, iconColor: "text-encrypted", label: "Merged into spendable" };
     case "register":
       return { icon: UserCheck, iconColor: "text-encrypted", label: "Registered account" };
   }
@@ -78,15 +129,17 @@ function describeEvent(ev: ConfidentialEvent, me: string): { icon: IconType; ico
 function ActivityRow({
   ev,
   wallet,
+  ctx,
   decryptedAmount,
 }: {
   ev: ConfidentialEvent;
   wallet: ConfidentialWallet;
+  ctx: EventContext;
   /** `undefined` = still decrypting, `null` = couldn't be attributed to this wallet. */
   decryptedAmount?: bigint | null;
 }) {
-  const me = wallet.address;
-  const { icon: Icon, iconColor, label } = describeEvent(ev, me);
+  const me = ctx.me;
+  const { icon: Icon, iconColor, label } = describeEvent(ev, ctx);
   const [proveOpen, setProveOpen] = useState(false);
 
   const direction: "received" | "sent" | null =
@@ -113,7 +166,7 @@ function ActivityRow({
         </div>
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-medium text-text-primary">{label}</div>
-          <div className="text-xs text-text-muted">{relativeLedger(ev.ledger)}</div>
+          <div className="text-xs text-text-muted">{relativeTime(ev)}</div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
           {ev.type === "transfer" &&
@@ -143,17 +196,17 @@ function ActivityRow({
                 e.stopPropagation();
                 setProveOpen((v) => !v);
               }}
-              className="text-[11px] font-medium text-text-muted transition-colors duration-150 hover:text-accent"
+              className="text-xs font-medium tracking-wide text-text-muted transition-colors duration-150 hover:text-accent"
             >
               {proveOpen ? "Close" : "Prove"}
             </button>
           )}
         </div>
       </div>
-      {proveOpen && direction && (
-        <div className="pb-3">
+      {direction && (
+        <Modal open={proveOpen} onClose={() => setProveOpen(false)} title="Prove This Transfer">
           <DiscloseFlow ev={ev as TransferEvent} direction={direction} wallet={wallet} />
-        </div>
+        </Modal>
       )}
     </li>
   );
@@ -172,6 +225,7 @@ export function HomeClient() {
   const [activity, setActivity] = useState<ConfidentialEvent[] | null>(null);
   const [activityLoading, setActivityLoading] = useState(true);
   const [decryptedAmounts, setDecryptedAmounts] = useState<Map<string, bigint | null>>(new Map());
+  const [escrowByAddress, setEscrowByAddress] = useState<Map<string, EscrowInfo>>(new Map());
 
   useEffect(() => {
     if (!wallet) return;
@@ -239,6 +293,40 @@ export function HomeClient() {
         }),
       );
       if (!cancelled) setDecryptedAmounts(new Map(entries));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [wallet, activity]);
+
+  // Resolve escrow instance details (depositor/recipient/state) for every
+  // contract-address counterparty appearing in the activity feed, so those
+  // transfers can be relabeled "Escrow funded/released/refunded" instead of
+  // a bare address. This is a hard signal (every escrow instance IS its own
+  // confidential account), not a heuristic like the payroll match above.
+  useEffect(() => {
+    if (!wallet || !activity || !DEPLOYMENT.contracts.escrowFactory) return;
+    const contractCounterparties = new Set<string>();
+    for (const ev of activity) {
+      if (ev.type !== "transfer") continue;
+      const counterparty = ev.to === wallet.address ? ev.from : ev.to;
+      if (!counterparty.startsWith("G")) contractCounterparties.add(counterparty);
+    }
+    if (contractCounterparties.size === 0) return;
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(
+        [...contractCounterparties].map(async (addr): Promise<[string, EscrowInfo] | null> => {
+          try {
+            return [addr, await wallet.escrowInfo(addr)];
+          } catch {
+            return null;
+          }
+        }),
+      );
+      if (!cancelled) {
+        setEscrowByAddress(new Map(entries.filter((e): e is [string, EscrowInfo] => e !== null)));
+      }
     })();
     return () => {
       cancelled = true;
@@ -329,7 +417,7 @@ export function HomeClient() {
 
           <div className="flex items-center justify-between">
             <span className="text-sm text-text-muted">{greeting}</span>
-            <span className="font-mono text-xs text-text-secondary">{shortAddress(wallet.address, 5)}</span>
+            <AddressDisplay address={wallet.address} chars={5} />
           </div>
 
           <div className="flex flex-col items-center gap-5 px-4 py-12 text-center">
@@ -362,7 +450,7 @@ export function HomeClient() {
         {/* Greeting */}
         <div className="flex items-center justify-between">
           <span className="text-sm text-text-muted">{greeting}</span>
-          <span className="font-mono text-xs text-text-secondary">{shortAddress(wallet.address, 5)}</span>
+          <AddressDisplay address={wallet.address} chars={5} />
         </div>
 
         {/* Balance overview */}
@@ -390,7 +478,7 @@ export function HomeClient() {
                   <Lock className="h-3 w-3" />
                   <span className="text-[10px] font-semibold uppercase tracking-wider">Spendable</span>
                 </div>
-                <div className="mt-1.5 font-mono text- font-semibold tabular-nums text-text-primary">
+                <div className="mt-1.5 font-mono text-lg font-semibold tabular-nums text-text-primary">
                   {displayAmount(spendable)}
                 </div>
               </div>
@@ -399,7 +487,7 @@ export function HomeClient() {
                   <ArrowDownLeft className="h-3 w-3" />
                   <span className="text-[10px] font-semibold uppercase tracking-wider">Receiving</span>
                 </div>
-                <div className="mt-1.5 font-mono text- font-semibold tabular-nums text-text-primary">
+                <div className="mt-1.5 font-mono text-lg font-semibold tabular-nums text-text-primary">
                   {displayAmount(receiving)}
                 </div>
               </div>
@@ -490,7 +578,13 @@ export function HomeClient() {
             <GlassCard padding="md">
               <ul className="flex flex-col">
                 {activity.map((ev) => (
-                  <ActivityRow key={ev.cursor} ev={ev} wallet={wallet} decryptedAmount={decryptedAmounts.get(ev.cursor)} />
+                  <ActivityRow
+                    key={ev.cursor}
+                    ev={ev}
+                    wallet={wallet}
+                    ctx={{ me: wallet.address, escrowByAddress }}
+                    decryptedAmount={decryptedAmounts.get(ev.cursor)}
+                  />
                 ))}
               </ul>
             </GlassCard>

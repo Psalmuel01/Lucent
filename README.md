@@ -280,7 +280,7 @@ packages/
   disclosure/ @lucent/disclosure shared disclosure circuits + pinned verification keys
   app/        @lucent/app        Next.js product front-end (Freighter wallet)
   indexer/    @lucent/indexer    optional Goldsky indexer for full event history
-scripts/                         deploy.ts · deploy-escrow.ts · e2e.ts · e2e-disclosure.ts
+scripts/                         deploy.ts · e2e.ts · e2e-disclosure.ts
 ```
 
 ## Deployed (testnet)

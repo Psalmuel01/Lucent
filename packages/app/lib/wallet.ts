@@ -226,6 +226,14 @@ export class ConfidentialWallet {
   }
 
   async merge(): Promise<void> {
+    // Sync first: applyMerge() optimistically folds whatever `receiving` is
+    // cached locally right now. If a transfer credited receiving on-chain
+    // since the last sync, an unsynced local cache would fold a stale
+    // (too-low) receiving into spendable while the real on-chain merge folds
+    // the true (higher) amount — leaving local state permanently short of
+    // chain, caught only later by verifyAgainstChain as an unspendable
+    // mismatch. Same reason transfer()/withdraw() sync before proving.
+    await this.engine.sync();
     this.log("merging receiving → spendable…");
     const r = await submitMerge(this.client, this.signer, this.address);
     await this.engine.applyMerge();

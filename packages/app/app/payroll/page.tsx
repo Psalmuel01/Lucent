@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
-import { NumericKeypad } from "@/components/ui/NumericKeypad";
+import { Input } from "@/components/ui/Input";
 import { TxStatus, type TxStep } from "@/components/ui/TxStatus";
 import { EncryptedBadge } from "@/components/ui/EncryptedBadge";
 import { SectionLabel } from "@/components/ui/SectionLabel";
@@ -21,7 +21,7 @@ import { useWallet } from "@/lib/wallet-context";
 import { useRequireWallet } from "@/lib/use-require-wallet";
 import { ConnectPrompt } from "@/components/ui/ConnectPrompt";
 import { useAction } from "@/lib/use-action";
-import { toBaseUnits } from "@/lib/amount";
+import { toBaseUnits, formatAmount, displayAmount, DECIMALS } from "@/lib/amount";
 import { errMsg } from "@/lib/err";
 import { DEPLOYMENT } from "@/lib/deployment";
 import { cn } from "@/lib/cn";
@@ -149,7 +149,7 @@ export default function PayrollPage() {
 
   async function openRun(templateId: bigint) {
     await run(
-      "openrun",
+      `openrun-${templateId}`,
       async () => {
         await wallet!.createRun(templateId);
       },
@@ -171,6 +171,10 @@ export default function PayrollPage() {
     setSalaries(Object.fromEntries(employees.map((a) => [a, ""])));
   }
 
+  const totalSalaries = executingEmployees.reduce((sum, a) => sum + toBaseUnits(salaries[a] || "0"), 0n);
+  const spendable = view?.spendable ?? 0n;
+  const overBudget = totalSalaries > spendable;
+
   async function confirmExecute() {
     if (!executingRun) return;
     const payments = executingEmployees.map((employee) => ({ employee, amount: toBaseUnits(salaries[employee] || "0") }));
@@ -178,11 +182,25 @@ export default function PayrollPage() {
       setError("Every salary must be greater than 0");
       return;
     }
+    if (totalSalaries > spendable) {
+      setError("Total salaries exceed your spendable balance");
+      return;
+    }
     await run("execute", async (sp) => {
       await wallet!.executeRun(executingRun.id, payments, sp);
       setExecutingRun(null);
     });
     reload();
+  }
+
+  /** Digits + at most one decimal point, clamped to DECIMALS fractional digits. */
+  function sanitizeAmount(raw: string): string {
+    let v = raw.replace(/[^0-9.]/g, "");
+    const dot = v.indexOf(".");
+    if (dot !== -1) v = v.slice(0, dot + 1) + v.slice(dot + 1).replace(/\./g, "");
+    const [whole, frac] = v.split(".");
+    if (frac !== undefined && frac.length > DECIMALS) v = `${whole}.${frac.slice(0, DECIMALS)}`;
+    return v;
   }
 
   async function cancelRun(runId: bigint) {
@@ -275,7 +293,7 @@ export default function PayrollPage() {
                             {t.employees.length} employee{t.employees.length !== 1 ? "s" : ""}
                           </p>
                         </div>
-                        <Button size="sm" variant="secondary" isLoading={busy === "openrun"} onClick={() => openRun(t.id)}>
+                        <Button size="sm" variant="secondary" isLoading={busy === `openrun-${t.id}`} onClick={() => openRun(t.id)}>
                           Create Run
                         </Button>
                       </div>
@@ -307,20 +325,30 @@ export default function PayrollPage() {
                           <EncryptedBadge size="sm" />
                         </div>
                         {tpl && r.status === RunStatus.Scheduled && (
-                          <div className="mt-3 flex gap-2">
-                            <Button size="sm" fullWidth isLoading={busy === `fund-${r.id}`} onClick={() => fundRun(r.id)}>
-                              Fund
-                            </Button>
-                            <Button size="sm" variant="danger" isLoading={busy === `cancel-${r.id}`} onClick={() => cancelRun(r.id)}>
-                              Cancel
-                            </Button>
+                          <div className="mt-3 flex flex-col gap-1.5">
+                            <div className="flex gap-2">
+                              <Button size="sm" fullWidth isLoading={busy === `fund-${r.id}`} onClick={() => fundRun(r.id)}>
+                                Fund
+                              </Button>
+                              <Button size="sm" variant="danger" isLoading={busy === `cancel-${r.id}`} onClick={() => cancelRun(r.id)}>
+                                Cancel
+                              </Button>
+                            </div>
+                            <p className="text-xs text-text-muted">
+                              Fund locks this run in — no money moves yet. Salaries are entered and
+                              transferred at Execute.
+                            </p>
                           </div>
                         )}
                         {tpl && r.status === RunStatus.Funded && (
-                          <div className="mt-3">
+                          <div className="mt-3 flex flex-col gap-1.5">
                             <Button size="sm" fullWidth onClick={() => beginExecute(r, tpl.employees)}>
                               Execute Payroll
                             </Button>
+                            <p className="text-xs text-text-muted">
+                              This is the step that actually pays everyone — each salary is proven and
+                              transferred now.
+                            </p>
                           </div>
                         )}
                       </GlassCard>
@@ -372,21 +400,43 @@ export default function PayrollPage() {
       <Modal open={executingRun !== null} onClose={() => setExecutingRun(null)} title={`Execute Run #${executingRun?.id.toString() ?? ""}`}>
         <p className="text-xs leading-relaxed text-text-muted">
           Enter each salary. One confidential transfer per employee is proven in your browser and
-          submitted atomically.
+          submitted atomically — this is the step that actually moves money.
         </p>
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2">
           {executingEmployees.map((a) => (
-            <div key={a} className="flex flex-col gap-2 rounded-xl border border-border p-3">
-              <AddressDisplay address={a} chars={8} showCopy={false} />
-              <NumericKeypad
+            <div key={a} className="flex items-center gap-3 rounded-xl border border-border p-3">
+              <AddressDisplay address={a} chars={6} showCopy={false} className="flex-1" />
+              <Input
                 value={salaries[a] ?? ""}
-                onChange={(v) => setSalaries((s) => ({ ...s, [a]: v }))}
-                unit="USDC"
+                onChange={(e) => setSalaries((s) => ({ ...s, [a]: sanitizeAmount(e.target.value) }))}
+                inputMode="decimal"
+                placeholder="0.00"
+                className="h-10 w-28 text-right font-mono text-sm"
               />
+              <span className="w-12 shrink-0 text-xs text-text-muted">USDC</span>
             </div>
           ))}
         </div>
-        <Button fullWidth size="lg" isLoading={busy === "execute"} onClick={confirmExecute}>
+
+        <div className="flex items-center justify-between rounded-xl border border-border bg-white/[0.02] px-3 py-2.5">
+          <span className="text-xs text-text-muted">Total</span>
+          <span className={cn("font-mono text-sm font-medium tabular-nums", overBudget ? "text-error" : "text-text-primary")}>
+            {formatAmount(totalSalaries, DECIMALS)} / {formatAmount(spendable, DECIMALS)} USDC
+          </span>
+        </div>
+        {overBudget && (
+          <p className="text-xs text-error">
+            Total salaries exceed your spendable balance ({displayAmount(spendable)}).
+          </p>
+        )}
+
+        <Button
+          fullWidth
+          size="lg"
+          isLoading={busy === "execute"}
+          disabled={overBudget || totalSalaries <= 0n}
+          onClick={confirmExecute}
+        >
           Execute Payroll
         </Button>
       </Modal>

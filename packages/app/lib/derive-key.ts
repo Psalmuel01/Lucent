@@ -13,10 +13,10 @@ import { frMod, fromBytesBE } from "@lucent/sdk";
 
 export function keyDerivationMessage(networkPassphrase: string, tokenContract: string): string {
   return [
-    "Confidential Token Demo — key derivation v1",
+    "Lucent's Confidential USDC Token — key derivation v1",
     "",
     "Signing this message derives your confidential spending key.",
-    "Only sign it on the official Confidential Token Demo app.",
+    "Only sign it on the official Lucent's Confidential USDC Token app.",
     "",
     `Network: ${networkPassphrase}`,
     `Token contract: ${tokenContract}`,

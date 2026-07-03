@@ -1,4 +1,4 @@
-//! Confidential Token demo contract.
+//! Lucent's Confidential USDC Token contract.
 //!
 //! Wraps the `ConfidentialToken` implementation from `stellar-tokens`
 //! (OpenZeppelin, `feat/confidential-verifier-ultrahonk`) with the compliance

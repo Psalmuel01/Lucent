@@ -174,9 +174,9 @@ function StatsBar() {
         </div>
         <Link
           href="/stats"
-          className="mx-auto mt-6 flex w-fit items-center gap-1 text-xs text-text-muted transition-colors hover:text-accent"
+          className="mx-auto mt-6 flex w-fit items-center gap-1 text-[15px] text-text-muted transition-colors hover:text-accent"
         >
-          View full stats <ArrowRight className="h-3 w-3" />
+          View full stats <ArrowRight className="h-4 w-4" />
         </Link>
       </div>
     </section>

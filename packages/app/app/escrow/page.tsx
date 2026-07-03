@@ -18,10 +18,10 @@ import { useWallet } from "@/lib/wallet-context";
 import { useRequireWallet } from "@/lib/use-require-wallet";
 import { ConnectPrompt } from "@/components/ui/ConnectPrompt";
 import { useAction } from "@/lib/use-action";
-import { toBaseUnits } from "@/lib/amount";
+import { toBaseUnits, formatAmount, displayAmount, DECIMALS } from "@/lib/amount";
 import { errMsg } from "@/lib/err";
 import { DEPLOYMENT } from "@/lib/deployment";
-import { ESCROW_STATE_LABEL } from "@/lib/format";
+import { ESCROW_STATE_LABEL, formatCountdown } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 
@@ -51,6 +51,14 @@ const TIMEOUT_OPTIONS = [
   { label: "7d", seconds: 604800n },
   { label: "30d", seconds: 2592000n },
 ];
+
+/**
+ * Time the depositor has to `release()` after the recipient marks delivery,
+ * before the recipient can claim (no arbiter) or dispute (arbiter set).
+ * Matches `RELEASE_WINDOW` in contracts/escrow-instance/src/lib.rs — fixed by
+ * the contract, not configurable per-escrow the way the timeout is.
+ */
+const RELEASE_WINDOW_SECONDS = 600;
 
 export default function EscrowPage() {
   const wallet = useRequireWallet();
@@ -137,6 +145,10 @@ export default function EscrowPage() {
 
   async function confirmFund() {
     if (!pendingFund || !fundAmount) return;
+    if (toBaseUnits(fundAmount) > (view?.spendable ?? 0n)) {
+      setError("Amount exceeds your spendable balance");
+      return;
+    }
     await run("fund", async (sp) => {
       await wallet!.fundEscrow(pendingFund.address, pendingFund.recipient, toBaseUnits(fundAmount), sp);
       setPendingFund(null);
@@ -152,6 +164,8 @@ export default function EscrowPage() {
   }
 
   const registered = view?.registered ?? false;
+  const spendable = view?.spendable ?? 0n;
+  const fundExceedsBalance = toBaseUnits(fundAmount || "0") > spendable;
 
   return (
     <AppShell>
@@ -258,6 +272,8 @@ export default function EscrowPage() {
           label="Amount (USDC)"
           value={fundAmount}
           onChange={(e) => setFundAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+          error={fundExceedsBalance ? `Exceeds spendable balance (${displayAmount(spendable)})` : undefined}
+          hint={!fundExceedsBalance ? `Spendable: ${formatAmount(spendable, DECIMALS)} USDC` : undefined}
           className="font-mono"
         />
         <p className="text-xs leading-relaxed text-text-muted">
@@ -265,7 +281,13 @@ export default function EscrowPage() {
           transfer-in and two payout proofs — all in your browser. This needs two wallet
           confirmations, submitted one after the other.
         </p>
-        <Button fullWidth size="lg" isLoading={busy === "fund"} disabled={!fundAmount} onClick={confirmFund}>
+        <Button
+          fullWidth
+          size="lg"
+          isLoading={busy === "fund"}
+          disabled={!fundAmount || fundExceedsBalance}
+          onClick={confirmFund}
+        >
           Fund Escrow
         </Button>
       </Modal>
@@ -304,6 +326,24 @@ function EscrowRow({
   const isHappyPath = stateNum <= EscrowState.Released;
   const sideLabel =
     stateNum === EscrowState.Disputed ? "Disputed" : stateNum === EscrowState.Refunded ? "Refunded" : stateNum === EscrowState.Cancelled ? "Cancelled" : null;
+
+  // Live countdown for the two time-gated transitions: the depositor's
+  // self-refund timeout (Funded) and the release window (Completed). Only
+  // ticks while expanded and in a state that actually has a deadline —
+  // no point re-rendering rows nobody's looking at.
+  const tracksDeadline =
+    open && (stateNum === EscrowState.Funded || stateNum === EscrowState.Completed);
+  const [nowSec, setNowSec] = useState(() => Math.floor(Date.now() / 1000));
+  useEffect(() => {
+    if (!tracksDeadline) return;
+    const tickId = setInterval(() => setNowSec(Math.floor(Date.now() / 1000)), 1000);
+    return () => clearInterval(tickId);
+  }, [tracksDeadline]);
+
+  const timeoutAt = Number(info.timeoutAt);
+  const releaseDeadline = Number(info.completedAt) + RELEASE_WINDOW_SECONDS;
+  const timeoutReached = stateNum === EscrowState.Funded && nowSec >= timeoutAt;
+  const releaseWindowElapsed = stateNum === EscrowState.Completed && nowSec >= releaseDeadline;
 
   return (
     <GlassCard padding="md">
@@ -362,6 +402,25 @@ function EscrowRow({
             )}
           </div>
 
+          {stateNum === EscrowState.Funded && (
+            <div className="flex items-center justify-between rounded-xl border border-border bg-white/[0.02] px-3 py-2">
+              <span className="text-xs text-text-muted">Depositor can self-refund in</span>
+              <span className={cn("font-mono text-xs font-medium", timeoutReached ? "text-warning" : "text-text-secondary")}>
+                {timeoutReached ? "Available now" : formatCountdown(timeoutAt)}
+              </span>
+            </div>
+          )}
+          {stateNum === EscrowState.Completed && (
+            <div className="flex items-center justify-between rounded-xl border border-border bg-white/[0.02] px-3 py-2">
+              <span className="text-xs text-text-muted">
+                {hasArbiter ? "Dispute opens in" : "Auto-claim opens in"}
+              </span>
+              <span className={cn("font-mono text-xs font-medium", releaseWindowElapsed ? "text-warning" : "text-text-secondary")}>
+                {releaseWindowElapsed ? "Available now" : formatCountdown(releaseDeadline)}
+              </span>
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center gap-2">
             {isDepositor && stateNum === EscrowState.Created && (
               <Button size="sm" variant="danger" isLoading={busy === k("cancel")} onClick={() => act(k("cancel"), () => wallet.cancelEscrow(address))}>
@@ -374,8 +433,14 @@ function EscrowRow({
               </Button>
             )}
             {isDepositor && stateNum === EscrowState.Funded && (
-              <Button size="sm" variant="secondary" isLoading={busy === k("timeout")} onClick={() => act(k("timeout"), () => wallet.timeoutEscrow(address))}>
-                Timeout Refund
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={!timeoutReached}
+                isLoading={busy === k("timeout")}
+                onClick={() => act(k("timeout"), () => wallet.timeoutEscrow(address))}
+              >
+                {timeoutReached ? "Timeout Refund" : `Timeout Refund (${formatCountdown(timeoutAt)})`}
               </Button>
             )}
             {isRecipient && stateNum === EscrowState.Funded && (
@@ -387,13 +452,24 @@ function EscrowRow({
               </div>
             )}
             {isRecipient && stateNum === EscrowState.Completed && !hasArbiter && (
-              <Button size="sm" isLoading={busy === k("claim")} onClick={() => act(k("claim"), () => wallet.claimAfterWindow(address))}>
-                Claim (after window)
+              <Button
+                size="sm"
+                disabled={!releaseWindowElapsed}
+                isLoading={busy === k("claim")}
+                onClick={() => act(k("claim"), () => wallet.claimAfterWindow(address))}
+              >
+                {releaseWindowElapsed ? "Claim" : `Claim (${formatCountdown(releaseDeadline)})`}
               </Button>
             )}
             {isRecipient && stateNum === EscrowState.Completed && hasArbiter && (
-              <Button size="sm" variant="secondary" isLoading={busy === k("dispute")} onClick={() => act(k("dispute"), () => wallet.disputeEscrow(address, uri))}>
-                Dispute (after window)
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={!releaseWindowElapsed}
+                isLoading={busy === k("dispute")}
+                onClick={() => act(k("dispute"), () => wallet.disputeEscrow(address, uri))}
+              >
+                {releaseWindowElapsed ? "Dispute" : `Dispute (${formatCountdown(releaseDeadline)})`}
               </Button>
             )}
             {isArbiter && stateNum === EscrowState.Disputed && (
