@@ -67,7 +67,7 @@ function describeEvent(ev: ConfidentialEvent, me: string): { icon: IconType; ico
     case "deposit":
       return { icon: ArrowDownUp, iconColor: "text-accent", label: "Deposited" };
     case "withdraw":
-      return { icon: ArrowDownUp, iconColor: "text-text-secondary", label: "Withdrew" };
+      return { icon: ArrowDownUp, iconColor: "text-accent", label: "Withdrew" };
     case "merge":
       return { icon: Layers, iconColor: "text-encrypted", label: "Merged receiving" };
     case "register":
@@ -133,7 +133,7 @@ function ActivityRow({
             </span>
           )}
           {ev.type === "withdraw" && (
-            <span className="font-mono text-sm font-medium tabular-nums text-text-secondary">
+            <span className="font-mono text-sm font-medium tabular-nums text-accent">
               −{displayAmount(ev.amount)}
             </span>
           )}
