@@ -94,3 +94,38 @@ export function submitTransfer(
     signer,
   );
 }
+
+/**
+ * `freeze(account, operator)` — compliance-admin only. A frozen account
+ * cannot deposit, transfer, receive, or withdraw until unfrozen. `operator`
+ * must be the token's compliance admin (set at deploy time); the contract
+ * enforces this via `#[only_admin]`, not this call.
+ */
+export function submitFreeze(
+  client: ChainClient,
+  signer: Signer,
+  account: string,
+  operator: string,
+): Promise<InvokeResult> {
+  return client.invoke(
+    client.cfg.contracts.token,
+    "freeze",
+    [addr(account), addr(operator)],
+    signer,
+  );
+}
+
+/** `unfreeze(account, operator)` — compliance-admin only. */
+export function submitUnfreeze(
+  client: ChainClient,
+  signer: Signer,
+  account: string,
+  operator: string,
+): Promise<InvokeResult> {
+  return client.invoke(
+    client.cfg.contracts.token,
+    "unfreeze",
+    [addr(account), addr(operator)],
+    signer,
+  );
+}
