@@ -48,6 +48,9 @@ import { errMsg } from "@/lib/err";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { useWallet } from "@/lib/wallet-context";
 import { useAction } from "@/lib/use-action";
+import { cn } from "@/lib/cn";
+
+type Tab = "decrypt" | "compliance";
 
 /** One decrypted line of the auditor's ledger. */
 interface AuditRow {
@@ -180,6 +183,7 @@ function saveSavedSecrets(secrets: string[]): void {
 }
 
 export default function AuditorPage() {
+  const [tab, setTab] = useState<Tab>("decrypt");
   const [secretInput, setSecretInput] = useState("");
   const [auditorSk, setAuditorSk] = useState<bigint | null>(null);
   const [keyError, setKeyError] = useState<string | null>(null);
@@ -272,11 +276,34 @@ export default function AuditorPage() {
   const transferRows = rows?.filter((r) => r.ev.type === "transfer" && r.channelsAgree) ?? [];
   const totalVolume = transferRows.reduce((sum, r) => sum + (r.amount ?? 0n), 0n);
 
+  const hasCompliance = !!DEPLOYMENT.contracts.policy;
+
   return (
     <AppShell>
       <PageHeader title="Auditor" showBack={false} />
 
       <div className="flex flex-col gap-5 px-4 pb-8 md:mx-auto md:max-w-2xl md:px-8">
+        {hasCompliance && (
+          <div className="flex gap-2 rounded-2xl border border-border bg-card p-1">
+            {(["decrypt", "compliance"] as Tab[]).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={cn(
+                  "flex-1 rounded-xl py-2.5 text-sm font-medium capitalize transition-all duration-200",
+                  tab === t ? "bg-accent text-black" : "text-text-muted hover:text-text-secondary",
+                )}
+              >
+                {t === "decrypt" ? "Decrypt" : "Compliance"}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {tab === "compliance" && hasCompliance ? (
+          <CompliancePanel />
+        ) : (
+          <>
         <p className="text-sm leading-relaxed text-text-secondary">
           Whoever holds a registered auditor's Grumpkin secret decrypts every transfer and withdrawal
           addressed to that key — no wallet, no proofs, no account cooperation required.
@@ -439,7 +466,8 @@ export default function AuditorPage() {
               )}
             </GlassCard>
 
-            {DEPLOYMENT.contracts.policy && <CompliancePanel />}
+          </>
+        )}
           </>
         )}
 

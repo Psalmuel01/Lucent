@@ -513,9 +513,9 @@ K_aud.y: 0x1924f028600e145cebddced39723196c9765ced6717a28454a15d527ffc120c8`}</P
           </P>
           {!DEPLOYMENT.contracts.policy && (
             <Callout tone="warning">
-              This specific deployment doesn&apos;t have compliance wired onto the token yet — the
-              Compliance panel stays hidden on the Auditor screen until it is. Check the Contracts
-              section below for whether a Compliance Policy address is live.
+              In the default deployment, the deployer wallet serves as both the auditor key registrant 
+              and the compliance admin. These roles can be separated by passing different addresses to 
+              the deploy script.
             </Callout>
           )}
 
