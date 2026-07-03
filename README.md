@@ -79,6 +79,7 @@ page's Auditor section has a demo key you can paste straight in.
 | **Payroll** | An employer distributes salaries to a set of employees in one atomic run. No employee can read another's amount; the vault itself never sees a plaintext salary either. |
 | **Escrow** | Two-party (optionally arbitrated) escrow whose locked amount stays confidential through creation, funding, delivery, dispute, and release. Each escrow is its own isolated confidential account. |
 | **Auditor console** | The party holding the registered Grumpkin auditor key decrypts every transfer amount and balance checkpoint across the deployment, for every account, without needing anyone's cooperation. |
+| **Compliance** | An allowlist policy and per-account freezing, both enforced on-chain by the token contract itself and gated behind a single compliance admin. An account off the allowlist, or frozen, is rejected before any amount is touched — the primitive KYC-gated payroll needs. Managed from the Auditor screen. |
 | **Selective disclosure** | A holder proves that one specific transfer paid exactly one amount to one counterparty, off-chain, revealing nothing else. The counterparty verifies the proof against the chain itself. |
 | **Freighter wallet** | The only supported signer. Confidential keys are derived deterministically from a Freighter message signature and cached locally, so the signing prompt only appears once per account. |
 | **Local state engine** | Every balance read goes through a client-side reconstruction layer that persists decrypted openings and re-verifies them against on-chain commitments — load-bearing, not a cache, since the Soroban RPC only serves ~7 days of event history. |
@@ -125,6 +126,7 @@ single constraint is what shapes Payroll and Escrow into the design below.
 | **Auditor** | Grumpkin auditor public-key registry, indexed by auditor id. |
 | **PayrollVault** | Orchestrates confidential salary runs. |
 | **PrivateEscrow** (factory + instance) | Confidential two-party escrow. |
+| **CompliancePolicy** | Admin-gated allowlist; wired onto the token's `ComplianceConfig` alongside per-account freezing. |
 
 **PayrollVault** is an orchestrator, not a custodian: an employer creates a
 template of employees and opens a run against it. Salaries are never written
@@ -156,6 +158,16 @@ funding-to-settlement flow.
 > discard it afterward. A depositor who retains it could re-spend the
 > escrowed balance and invalidate both stored proofs. Acceptable for a
 > testnet demo; not for production.
+
+**Compliance Policy** is a separate, admin-gated allowlist contract, wired
+onto the token via `ComplianceConfig` (from OpenZeppelin's confidential
+token compliance extension). Once wired, every deposit, transfer, receive,
+and withdraw checks the policy first — an account off the allowlist is
+rejected on-chain before any amount is touched. The same admin can also
+freeze a specific account outright, independent of the allowlist. Both are
+managed from the Auditor screen's Compliance panel by whoever holds the
+compliance-admin wallet set at deploy time; the contract enforces that
+itself, not the app.
 
 Lucent's confidential-token layer — the commitment scheme, the UltraHonk
 circuits, and the Poseidon2/Grumpkin crypto — is built on
@@ -208,6 +220,7 @@ cargo test --manifest-path contracts/Cargo.toml
 | `contracts/payroll` | State machine, employer auth, atomic batch payout, cancel paths | 10 |
 | `contracts/escrow-instance` | Every state transition, release-window timing, arbiter vs. no-arbiter branches, auth, the two-step `store_payout_proofs` → `fund` guard | 18 |
 | `contracts/escrow-factory` | Deploys a real instance and drives it through `store_payout_proofs` → `fund` → `mark_completed` → `release` | 1 |
+| `contracts/policy` | Allowlist add/remove/is_authorized round-trip, admin auth rejection | 3 |
 
 ## Deploying
 
@@ -222,11 +235,15 @@ stellar contract id asset --asset USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4
 UNDERLYING_TOKEN=CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA pnpm deploy:contracts
 ```
 
-Deploys the full stack — token, verifier, auditor, PayrollVault, and the
-PrivateEscrow factory — under your `admin` stellar CLI identity, and writes
-both `deployments/testnet.json` and `packages/app/lib/deployment.json`. The
-app reads the latter directly, so a redeploy takes effect with **no code
-edit and no env var** — just rebuild and run. (`NEXT_PUBLIC_PAYROLL_ID` /
+Deploys the full stack — token, verifier, auditor, compliance policy,
+PayrollVault, and the PrivateEscrow factory — under your `admin` stellar CLI
+identity, and writes both `deployments/testnet.json` and
+`packages/app/lib/deployment.json`. The token deploys with the compliance
+hooks enabled and `admin` set as the compliance admin, and the script wires
+the policy contract onto it via `set_compliance_config` right after deploy
+(with `sac_passthrough: false` — the allowlist is the only gate). The app
+reads the deployment file directly, so a redeploy takes effect with **no
+code edit and no env var** — just rebuild and run. (`NEXT_PUBLIC_PAYROLL_ID` /
 `NEXT_PUBLIC_ESCROW_FACTORY_ID` exist only to override those two ids ahead of
 a redeploy, e.g. to point at someone else's.)
 
@@ -243,6 +260,9 @@ A full end-to-end walkthrough, real proofs on testnet:
 5. **Selective disclosure** — mint a request on the Verify screen, disclose
    the matching transfer from Home's activity feed, verify the returned
    bundle back on Verify.
+6. **Compliance** — on the Auditor screen's Compliance panel (connected as
+   the compliance admin), allowlist an account, confirm Send/Shield reject
+   it before allowlisting; freeze an account and confirm the same.
 
 ## Architecture
 
@@ -254,6 +274,7 @@ contracts/                    Rust/Soroban (separate Cargo workspace)
   payroll/                    PayrollVault
   escrow-instance/            PrivateEscrow instance
   escrow-factory/             PrivateEscrow factory
+  policy/                     Compliance allowlist policy
 packages/
   sdk/        @lucent/sdk        crypto · witness · proving · chain (incl. payroll/escrow) · state · auditor · disclosure
   disclosure/ @lucent/disclosure shared disclosure circuits + pinned verification keys
