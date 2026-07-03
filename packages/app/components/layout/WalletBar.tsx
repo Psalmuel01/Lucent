@@ -22,20 +22,21 @@ export function WalletBar() {
   const synced = view?.matchesChain === true;
   const mismatch = view?.matchesChain === false;
 
-  return (
-    <div className="flex items-center justify-between gap-3 px-4 md:px-8">
-      <span className="font-mono text-xs text-text-secondary">{shortAddress(wallet.address, 5)}</span>
-      <div className="flex items-center gap-1.5 text-xs">
-        <span
-          className={cn(
-            "h-1.5 w-1.5 rounded-full",
-            synced ? "bg-success" : mismatch ? "bg-error" : "animate-pulse bg-warning",
-          )}
-        />
-        <span className={cn(synced ? "text-success" : mismatch ? "text-error" : "text-warning")}>
-          {synced ? "Synced" : mismatch ? "Mismatch" : "Syncing…"}
-        </span>
-      </div>
-    </div>
-  );
+  return <></>;
+  // return (
+  //   <div className="flex items-center justify-between gap-3 px-4 md:px-8">
+  //     <span className="font-mono text-xs text-text-secondary">{shortAddress(wallet.address, 5)}</span>
+  //     <div className="flex items-center gap-1.5 text-xs">
+  //       <span
+  //         className={cn(
+  //           "h-1.5 w-1.5 rounded-full",
+  //           synced ? "bg-success" : mismatch ? "bg-error" : "animate-pulse bg-warning",
+  //         )}
+  //       />
+  //       <span className={cn(synced ? "text-success" : mismatch ? "text-error" : "text-warning")}>
+  //         {synced ? "Synced" : mismatch ? "Mismatch" : "Syncing…"}
+  //       </span>
+  //     </div>
+  //   </div>
+  // );
 }
