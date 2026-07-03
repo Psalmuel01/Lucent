@@ -43,7 +43,7 @@ const vkJson = loadArtifact("disclose_recipient.vk.json");
 const senderCircuit = loadArtifact("disclose_sender.json");
 const senderVkJson = loadArtifact("disclose_sender.vk.json");
 
-const TOKEN = "CBF64DEOVQAXJFBSNGFEUT2AH4H7K5JBY3ZYJ5GVEINMNSDISWRG5N3F";
+const TOKEN = "CDQLYWKQYQ7QUUU6E5R4YTOZLEUN3OQ62GCS6SCCOLIL7SBT4T2MXPKU";
 const addrF = addressToField(TOKEN);
 
 let pass = 0,
