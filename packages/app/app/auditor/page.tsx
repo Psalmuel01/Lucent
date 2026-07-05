@@ -43,6 +43,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { Callout } from "@/components/ui/Callout";
 import { AddressDisplay } from "@/components/ui/AddressDisplay";
 import { displayAmount } from "@/lib/amount";
+import { timeAgo } from "@/lib/format";
 import { DEPLOYMENT } from "@/lib/deployment";
 import { errMsg } from "@/lib/err";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
@@ -72,6 +73,8 @@ interface AccountView {
   /** Running sum of decrypted inbound transfers + public deposits. */
   receiving: bigint;
   lastLedger: number;
+  /** Ledger close time of the last-seen event (ISO), when the source provides it. */
+  lastSeenAt?: string;
 }
 
 function replay(events: ConfidentialEvent[], auditorSk: bigint): { rows: AuditRow[]; accounts: AccountView[] } {
@@ -85,22 +88,25 @@ function replay(events: ConfidentialEvent[], auditorSk: bigint): { rows: AuditRo
     }
     return a;
   };
-  const seen = (address: string, ledger: number) => {
+  const seen = (address: string, ledger: number, closedAt?: string) => {
     const a = acct(address);
-    a.lastLedger = Math.max(a.lastLedger, ledger);
+    if (ledger >= a.lastLedger) {
+      a.lastLedger = ledger;
+      a.lastSeenAt = closedAt ?? a.lastSeenAt;
+    }
     return a;
   };
 
   for (const ev of events) {
     switch (ev.type) {
       case "register": {
-        const a = seen(ev.account, ev.ledger);
+        const a = seen(ev.account, ev.ledger, ev.closedAt);
         a.spendable = 0n;
         rows.push({ ev, text: "registered", amount: null, senderBalance: null, channelsAgree: true });
         break;
       }
       case "deposit": {
-        const a = seen(ev.to, ev.ledger);
+        const a = seen(ev.to, ev.ledger, ev.closedAt);
         a.receiving += ev.amount;
         rows.push({
           ev,
@@ -112,7 +118,7 @@ function replay(events: ConfidentialEvent[], auditorSk: bigint): { rows: AuditRo
         break;
       }
       case "merge": {
-        const a = seen(ev.account, ev.ledger);
+        const a = seen(ev.account, ev.ledger, ev.closedAt);
         if (a.spendable !== null) a.spendable += a.receiving;
         a.receiving = 0n;
         rows.push({
@@ -125,7 +131,7 @@ function replay(events: ConfidentialEvent[], auditorSk: bigint): { rows: AuditRo
         break;
       }
       case "withdraw": {
-        const a = seen(ev.from, ev.ledger);
+        const a = seen(ev.from, ev.ledger, ev.closedAt);
         const { senderBalance } = auditWithdraw(auditorSk, ev);
         a.spendable = senderBalance;
         rows.push({
@@ -138,8 +144,8 @@ function replay(events: ConfidentialEvent[], auditorSk: bigint): { rows: AuditRo
         break;
       }
       case "transfer": {
-        const from = seen(ev.from, ev.ledger);
-        const to = seen(ev.to, ev.ledger);
+        const from = seen(ev.from, ev.ledger, ev.closedAt);
+        const to = seen(ev.to, ev.ledger, ev.closedAt);
         const d = auditTransfer(auditorSk, ev);
         if (d.channelsAgree) {
           from.spendable = d.senderBalance;
@@ -442,7 +448,9 @@ export default function AuditorPage() {
                         </td>
                         <td className="py-1.5 font-mono tabular-nums text-text-primary">{a.spendable === null ? "?" : displayAmount(a.spendable)}</td>
                         <td className="py-1.5 font-mono tabular-nums text-text-primary">{displayAmount(a.receiving)}</td>
-                        <td className="py-1.5 text-text-muted">ledger {a.lastLedger}</td>
+                        <td className="py-1.5 text-text-muted">
+                          {a.lastSeenAt ? timeAgo(new Date(a.lastSeenAt).getTime()) : `ledger ${a.lastLedger}`}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

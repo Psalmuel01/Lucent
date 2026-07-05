@@ -140,7 +140,7 @@ export default function ShieldPage() {
               />
             </GlassCard>
             <div className="flex justify-center">
-              <ProofStatusPill status={busy === "deposit" ? "encrypting" : "idle"} />
+              <ProofStatusPill status="idle" />
             </div>
             <p className="px-2 text-center text-xs leading-relaxed text-text-muted">
               Moves public USDC into your receiving balance at a 1:1 ratio — no proof required.
