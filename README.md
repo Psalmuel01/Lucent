@@ -6,6 +6,7 @@
 
 Sender and receiver stay public and verifiable on-chain. Only the amount moves in the dark.
 
+[![CI](https://github.com/psalmuel01/lucent/actions/workflows/ci.yml/badge.svg)](https://github.com/psalmuel01/lucent/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Network: Stellar Testnet](https://img.shields.io/badge/network-Stellar%20Testnet-7D00FF)](https://stellar.org)
 [![Node ≥ 20](https://img.shields.io/badge/node-%E2%89%A520-339933?logo=node.js&logoColor=white)](package.json)
@@ -41,6 +42,7 @@ wallet integration.
 - [Deploying](#deploying)
 - [Architecture](#architecture)
 - [Deployed (testnet)](#deployed-testnet)
+- [Contributing](#contributing)
 - [Acknowledgments](#acknowledgments)
 - [License](#license)
 
@@ -258,7 +260,7 @@ A full end-to-end walkthrough, real proofs on testnet:
 
 1. **Shield** — connect Freighter, register, deposit, merge.
 2. **Send** — confidential transfer to a second registered account.
-3. **Payroll** — create a template of employees, open + fund a run, enter
+3. **Payroll** — create a template of employees, open + confirm a run, enter
    salaries, execute; then **Auditor** decrypts every salary amount.
 4. **Escrow** — deploy + fund an escrow (two wallet confirmations); walk it
    through mark-completed → release (or dispute → resolve).
@@ -303,6 +305,13 @@ Read from `deployments/testnet.json`, rewritten automatically by
 | PrivateEscrow factory | `CCGJ5XEZDFSKJSLWEO7D22KZXOSPRNWE4R3RFO4SQBWPQ5RZ3WK7I2XS` |
 | PrivateEscrow instance wasm | `44c5852692374c24c5fe2cc6c9e7fcfa936418365ae352266182743794501306` |
 | Compliance Policy | `CB6Z7YIWYMKU3QUALYBJZMJEF72QRKBPFOCDHECPD3V5DCIRMU674UME` (gate is toggleable live from Auditor → Compliance — see the Compliance Policy section) |
+
+## Contributing
+
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for dev
+setup, the test/lint commands CI runs, and PR expectations. Please also read
+the [Code of Conduct](CODE_OF_CONDUCT.md). Found a security issue? Follow
+[SECURITY.md](SECURITY.md) instead of opening a public issue.
 
 ## Acknowledgments
 

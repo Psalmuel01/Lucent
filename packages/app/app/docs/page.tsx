@@ -321,9 +321,10 @@ claim()                               // employee folds salary into spendable`}<
           <P>
             <strong>Create a template</strong> once with the employee list — templates carry no
             amounts, just who gets paid. <strong>Create a run</strong> against it to open a{" "}
-            <Code>Scheduled</Code> run. <strong>Fund the run</strong> records that the employer&apos;s
-            confidential spendable balance covers the total — a state marker, not a transfer, since the
-            vault can&apos;t read an encrypted balance to lock anything against it.
+            <Code>Scheduled</Code> run. <strong>Confirm the run</strong> (<Code>fund_run</Code> on-chain
+            — the app calls it "Confirm" since it doesn't actually move anything) records that the
+            employer&apos;s confidential spendable balance covers the total — a state marker, not a
+            transfer, since the vault can&apos;t read an encrypted balance to lock anything against it.
           </P>
           <P>
             <strong>Execute the run</strong> is where the money actually moves: the employer enters each

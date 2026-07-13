@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node:
+    name: SDK & app (typecheck, tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build @lucent/sdk
+        run: pnpm build:sdk
+
+      - name: Typecheck SDK
+        run: pnpm --filter @lucent/sdk typecheck
+
+      - name: Typecheck app
+        run: pnpm --filter @lucent/app typecheck
+
+      - name: SDK tests (fast — excludes live proving/network)
+        run: pnpm --filter @lucent/sdk test:fast
+
+  contracts:
+    name: Contracts (Rust/Soroban)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.91"
+          targets: wasm32v1-none
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: contracts -> target
+
+      - name: cargo test
+        working-directory: contracts
+        run: cargo test
+
+      # Advisory only for now — the codebase isn't fully rustfmt/clippy-clean yet,
+      # so these don't gate merges. Tighten to a hard failure once that's cleaned up.
+      - name: cargo fmt --check (advisory)
+        working-directory: contracts
+        continue-on-error: true
+        run: cargo fmt --check
+
+      - name: cargo clippy (advisory)
+        working-directory: contracts
+        continue-on-error: true
+        run: cargo clippy --all-targets

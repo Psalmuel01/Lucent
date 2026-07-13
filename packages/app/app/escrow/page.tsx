@@ -445,7 +445,9 @@ function EscrowRow({
             )}
             {isRecipient && stateNum === EscrowState.Funded && (
               <div className="flex flex-1 items-center gap-2">
-                <Input value={uri} onChange={(e) => setUri(e.target.value)} className="h-10 flex-1 text-xs" />
+                <div className="flex-1">
+                  <Input value={uri} onChange={(e) => setUri(e.target.value)} className="h-10 text-xs" />
+                </div>
                 <Button size="sm" variant="secondary" isLoading={busy === k("mark")} onClick={() => act(k("mark"), () => wallet.markCompleted(address, uri))}>
                   Mark Delivered
                 </Button>

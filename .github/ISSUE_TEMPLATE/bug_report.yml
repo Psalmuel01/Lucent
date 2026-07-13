@@ -1,0 +1,52 @@
+name: Bug report
+description: Something in the app, SDK, or contracts isn't working as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. If this is a security-sensitive bug (funds, confidentiality,
+        or proof soundness), please follow [SECURITY.md](../../SECURITY.md) instead of filing
+        it here.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - App (front-end)
+        - SDK (@lucent/sdk)
+        - Contracts (Rust/Soroban)
+        - Disclosure
+        - Indexer
+        - Docs
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: As precise as you can — flow (Shield/Send/Payroll/Escrow/etc.), inputs, and any error output.
+    validations:
+      required: true
+  - type: input
+    id: tx
+    attributes:
+      label: Testnet transaction hash or contract ID (if applicable)
+      description: Include the network is testnet unless stated otherwise.
+    validations:
+      required: false
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: OS, Node version, browser, Freighter version — whatever's relevant.
+    validations:
+      required: false
